@@ -1,0 +1,12 @@
+node_modules/
+.next/
+dist/
+.env
+.env.*
+*.pem
+*.key
+*.db
+*.db-shm
+*.db-wal
+.DS_Store
+coverage/
