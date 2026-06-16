@@ -1,0 +1,80 @@
+name: bitget-a-tier-anomaly-scanner
+display_name: "Bitget A-Tier Anomaly Scanner"
+version: "1.0.0"
+description: "A market-anomaly signal scanner for Bitget perpetual contracts."
+long_description: |
+  This Playbook is a market-anomaly strategy for perpetual crypto contracts on Bitget. It tries to capture moments when participation, liquidity, price direction, and trader pressure line up in a way that suggests a fresh directional move may be forming. Instead of following a single coin all the time, it scans a curated liquid contract universe and ranks candidates by multiple market-behavior factors, then emits the strongest current long or short signal for review.
+
+  The entry logic is based on directional agreement between market activity and price behavior. A long signal is preferred when participation expands while price and aggressive flow lean upward. A short signal is preferred when participation expands while price and selling pressure lean downward. If the data does not show enough alignment, the Playbook emits a watch signal rather than forcing a trade. This makes the strategy selective and avoids turning every market move into a position.
+
+  The exit concept is designed around strict risk control. The companion dashboard version uses fixed stop protection, fixed reward targets, cooldown after closed positions, and a cap on simultaneous exposure. In this GetAgent version, the Playbook publishes the entry direction and risk context as a signal-only strategy, so subscribers can inspect the suggested stop and target framework before deciding whether to act. The strategy is not meant to run as unattended real-money execution in this package.
+
+  The configurable universe controls which contracts are scanned. A broader universe can surface more opportunities but may include noisier small-cap markets; a tighter universe focuses the scanner on deeper liquidity. The minimum score controls selectivity: raising it reduces trade frequency and emphasizes stronger alignment, while lowering it increases activity but can admit more false positives. The risk parameters describe how the signal should be interpreted, not a guarantee of realized return.
+
+  This strategy can underperform in choppy markets, thin liquidity, exchange-specific data gaps, sudden news shocks, and periods where open interest rises for hedging rather than directional conviction. Signals should be treated as structured research output, not guaranteed profit. Past paper records or dashboard behavior do not ensure future results, and any live use should start with small size, manual review, and clear loss limits.
+market_type: contract
+trading_symbols: ["BTCUSDT", "ETHUSDT", "SOLUSDT", "XRPUSDT", "DOGEUSDT"]
+tags: ["bitget", "anomaly", "perpetual", "scanner", "signal"]
+decision_mode: deterministic
+backtest_support: none
+runtime_profile: deterministic
+execution_mode: signal_only
+follow_trade_supported: false
+official_evidence_kind: paper
+schedule:
+  cron: "*/30 * * * *"
+  tz: "Asia/Shanghai"
+strategy_config:
+  trading_symbols: ["BTCUSDT", "ETHUSDT", "SOLUSDT", "XRPUSDT", "DOGEUSDT"]
+  exchange: "bitget"
+  min_score: 48
+  max_candidates: 5
+  risk_per_trade_pct: 1.5
+  stop_pct: 3
+  target_r: 2
+  leverage: 3
+user_config_schema:
+  trading_symbols:
+    type: array
+    item_type: string
+    default: ["BTCUSDT", "ETHUSDT", "SOLUSDT", "XRPUSDT", "DOGEUSDT"]
+    options: ["BTCUSDT", "ETHUSDT", "SOLUSDT", "XRPUSDT", "DOGEUSDT", "BNBUSDT", "ADAUSDT", "LINKUSDT", "AVAXUSDT", "UNIUSDT"]
+    min_items: 1
+    max_items: 10
+    label: "Contracts to scan"
+  min_score:
+    type: integer
+    default: 48
+    min: 35
+    max: 80
+    label: "Minimum anomaly score"
+  max_candidates:
+    type: integer
+    default: 5
+    min: 1
+    max: 10
+    label: "Maximum candidates in signal metadata"
+  risk_per_trade_pct:
+    type: number
+    default: 1.5
+    min: 0.1
+    max: 5
+    label: "Risk per signal percent"
+  stop_pct:
+    type: number
+    default: 3
+    min: 1
+    max: 10
+    label: "Stop distance percent"
+  target_r:
+    type: number
+    default: 2
+    min: 1
+    max: 5
+    label: "Target R multiple"
+  leverage:
+    type: integer
+    default: 3
+    min: 1
+    max: 10
+    label: "Reference leverage"
