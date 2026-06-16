@@ -6,6 +6,7 @@ A working MVP for the Bitget Hackathon: an AI-assisted trading agent workspace t
 
 - Public demo: http://56.155.138.109/quant
 - Runtime records: [`logs/`](./logs/)
+- GetAgent Playbook: [`getagent-playbooks/a-tier-anomaly-scanner`](./getagent-playbooks/a-tier-anomaly-scanner)
 
 The demo is public and does not require login.
 
