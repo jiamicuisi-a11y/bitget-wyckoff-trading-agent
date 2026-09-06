@@ -1,0 +1,43 @@
+"use client";
+
+import type { ReactNode } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+
+const links = [
+  { href: "/overview", label: "总览", icon: "▦" },
+  { href: "/agent", label: "Agent 对话", icon: "✦" },
+  { href: "/radar/anomaly", label: "A档异动扫描", icon: "◉" },
+  { href: "/radar/dualma", label: "双均线 4H", icon: "⌁" },
+  { href: "/risk", label: "风险闸门", icon: "◈" },
+  { href: "/runs", label: "运行记录", icon: "▤" },
+  { href: "/connections", label: "权限与连接", icon: "⚙" },
+];
+
+export default function AppShell({ children, title, eyebrow }: { children: ReactNode; title: string; eyebrow: string }) {
+  const pathname = usePathname();
+  return (
+    <div className="product-shell">
+      <aside className="product-sidebar">
+        <Link className="product-brand" href="/overview" aria-label="回到总览">
+          <span className="brand-mark">✦</span>
+          <span><strong>Agent OS</strong><small>Strategy Copilot</small></span>
+        </Link>
+        <div className="sidebar-label">WORKSPACE</div>
+        <nav className="product-nav">
+          {links.slice(0, 4).map((link) => <Link key={link.href} href={link.href} className={`product-nav-item ${pathname === link.href ? "selected" : ""}`}><span>{link.icon}</span>{link.label}</Link>)}
+        </nav>
+        <div className="sidebar-label">CONTROL PLANE</div>
+        <nav className="product-nav">
+          {links.slice(4).map((link) => <Link key={link.href} href={link.href} className={`product-nav-item ${pathname === link.href ? "selected" : ""}`}><span>{link.icon}</span>{link.label}</Link>)}
+        </nav>
+        <div className="sidebar-spacer" />
+        <div className="safe-card"><span className="status-dot" /> <strong>PAPER MODE</strong><p>只读行情 · 本地模拟执行</p><small>broadcast=false</small></div>
+      </aside>
+      <main className="product-main">
+        <header className="product-topbar"><div className="crumb">Strategy Copilot <span>/</span> <strong>{title}</strong></div><div className="topbar-status"><span className="status-dot" />Binance Futures public data</div></header>
+        <div className="page-wrap"><div className="page-intro"><div><span className="page-eyebrow">{eyebrow}</span><h1>{title}</h1></div><div className="boundary-badge">PAPER ONLY <span>•</span> NO WITHDRAWAL</div></div>{children}</div>
+      </main>
+    </div>
+  );
+}

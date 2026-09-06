@@ -1,0 +1,63 @@
+# Agent OS · Strategy Copilot
+
+Binance Agent OS Mini Hackathon Track A prototype：一个面向交易研究与模拟执行的 AI Agent 控制台。
+
+它复用了此前 Bitget Hackathon 项目中的两套 Paper 策略：
+
+- **A档异动扫描**：综合 OI、24h 价格、成交额、盘口和资金费率，筛选异动机会。
+- **双均线 4H**：对 Binance USDT 永续成交额 Top30 计算 EMA(10/30)，捕捉金叉/死叉趋势段。
+
+当前版本将两套策略接入 Binance Futures 公开行情，并用 Agent OS 风格的工作流呈现：
+
+```text
+行情感知 → 策略判断 → 风险闸门 → 人工确认 → Paper 执行 → 审计记录
+```
+
+## Local preview
+
+需要 Node.js 24+（Paper worker 使用 Node 原生 SQLite）：
+
+```bash
+node scripts/preview-recovered.mjs
+```
+
+- Frontend: http://localhost:4180
+- Paper worker: http://localhost:8810
+
+页面默认展示 Binance 版 A档异动扫描和双均线 4H。旧的 Bitget/OKX 策略仍注册在 worker 中，便于横向对照。
+
+## Binance Agent OS / MCP
+
+项目包含一个基于官方 MCP SDK 的本地 Client ↔ Server 工具层，供网页 Agent 对话调用公开行情、策略评估、Paper 状态、风控和审计工具。页面同时明确展示官方 Binance MCP Server 的正式端点：
+
+```text
+https://agent.binance.com/mcp/agentic
+```
+
+官方 MCP 的账户授权必须在 Binance Agent OS 支持的客户端中由用户完成；本项目不会保存凭证，也不会把本地 Paper Demo 伪装成已授权的官方账户连接。官方连接文档见 [`docs/BINANCE-MCP.md`](docs/BINANCE-MCP.md)。
+
+## Safety boundary
+
+- 所有策略仍为 PAPER MODE，仅使用公开行情和本地 SQLite 模拟账本。
+- 当前不连接账户、不读取 API key、不签名、不广播、不充值提现、不发送真实订单。
+- 策略 worker 会自动按周期扫描并管理 Paper 持仓；页面不需要“运行一次”或“刷新扫描”。Agent Tool Layer 仍保留为可审计的只读编排入口。
+
+## Track A demo story
+
+Demo 建议按 2–3 分钟讲清楚：输入自然语言交易意图 → Agent 读取 Binance 行情 → A档与双均线给出候选 → 风险闸门解释为什么不自动下单 → 用户确认前的 Paper 状态、权益曲线和审计记录。
+
+- 录屏脚本：`docs/DEMO-SCRIPT.md`
+- 提交文案：`docs/SUBMISSION.md`
+- 架构说明：`docs/ARCHITECTURE.md`
+- 比赛准备清单：`docs/COMPETITION-READINESS.md`
+- 官方 MCP 接入说明：`docs/BINANCE-MCP.md`
+
+## Project layout
+
+- `frontend/app/components/AgentChatPage.tsx`：自然语言 Agent 对话与 MCP Tool Trace
+- `frontend/app/api/agent/route.ts`：页面到 Agent Tool Layer 的安全代理
+- `frontend/app/globals.css`：Agent OS 控制台视觉系统
+- `backend/server/sources.mjs`：Bitget、OKX、Binance Futures 统一数据源适配
+- `backend/server/strategies.mjs`：A档和双均线策略注册表
+- `backend/server/index.mjs`：扫描 worker 与 `/api/agent/run` 工具编排入口
+- `data/quant.db`：本地 Paper 账本

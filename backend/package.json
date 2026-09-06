@@ -1,0 +1,19 @@
+{
+  "name": "quant-paper-lab",
+  "version": "1.0.0",
+  "private": false,
+  "type": "module",
+  "description": "Bitget Hackathon trading agent backend: market anomaly scanner, Wyckoff/dual-MA strategy engine, options arbitrage radar, and paper trading state APIs.",
+  "scripts": {
+    "start": "node --experimental-sqlite server/index.mjs",
+    "dev": "node --experimental-sqlite --watch server/index.mjs",
+    "backtest:dualma": "node server/backtest-dualma.mjs"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "zod": "^4.5.4"
+  }
+}
