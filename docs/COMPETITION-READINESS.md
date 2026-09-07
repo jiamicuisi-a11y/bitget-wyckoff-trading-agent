@@ -18,7 +18,7 @@
 ## 提交前必须完成
 
 - [ ] 创建或确认公开 GitHub 仓库，并把当前代码同步进去。
-- [ ] 在干净 Node.js 24+ 环境执行 `node scripts/preview-recovered.mjs`。
+- [ ] 在干净 Node.js 24+ 环境执行 `node scripts/local-service.mjs start`。
 - [ ] 录制完整 Demo，展示两套策略、Agent 对话、MCP Tool Trace、Paper 账本和 Risk Gate。
 - [ ] 说明本项目使用 Binance public data，不把模拟收益写成实盘收益。
 - [ ] 按官方要求完成公告互动和问卷。

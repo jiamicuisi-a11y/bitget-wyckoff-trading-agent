@@ -13,7 +13,7 @@
 ## Run
 
 ```bash
-node scripts/preview-recovered.mjs
+node scripts/local-service.mjs start
 ```
 
 打开 `http://localhost:4180`，进入「Agent 对话」或「A档异动扫描」。后台会自动扫描、开平 Paper 仓；在「Agent 对话」中输入问题，页面会展示中文回答和真实 MCP Tool Trace。切换页面即可查看两套独立账户、候选、持仓和权益曲线。

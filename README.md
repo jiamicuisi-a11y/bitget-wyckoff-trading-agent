@@ -18,7 +18,19 @@ Binance Agent OS Mini Hackathon Track A prototype：一个面向交易研究与�
 需要 Node.js 24+（Paper worker 使用 Node 原生 SQLite）：
 
 ```bash
-node scripts/preview-recovered.mjs
+node scripts/local-service.mjs start
+```
+
+这会先构建正式页面，再在后台稳定运行前端和 Paper worker；关闭启动终端不会让站点下线。录屏前可检查：
+
+```bash
+node scripts/local-service.mjs status
+```
+
+需要停止时：
+
+```bash
+node scripts/local-service.mjs stop
 ```
 
 - Frontend: http://localhost:4180
@@ -36,6 +48,12 @@ https://agent.binance.com/mcp/agentic
 
 官方 MCP 的账户授权必须在 Binance Agent OS 支持的客户端中由用户完成；本项目不会保存凭证，也不会把本地 Paper Demo 伪装成已授权的官方账户连接。官方连接文档见 [`docs/BINANCE-MCP.md`](docs/BINANCE-MCP.md)。
 
+## 市场情报
+
+侧边栏的“市场情报”汇集 Binance 官方活动、Binance 公告/上币公告和 CoinDesk RSS。每条内容保留来源、发布时间和原文链接，并只读关联当前公开行情及策略候选。数据请求设有超时与本地缓存回退，单一资讯源不可用不会影响模拟盘服务。
+
+这里的 Binance 活动和公告来自公开 CMS，不是 Binance MCP 授权结果；页面不读取账户、不判断资格、不替用户报名。官方 Binance MCP 仍仅通过用户在受支持客户端中完成的授权连接使用。
+
 ## Safety boundary
 
 - 所有策略仍为 PAPER MODE，仅使用公开行情和本地 SQLite 模拟账本。
@@ -44,7 +62,7 @@ https://agent.binance.com/mcp/agentic
 
 ## Track A demo story
 
-Demo 建议按 2–3 分钟讲清楚：输入“扫描全市场” → Agent 读取 Binance 行情并返回结构化候选 → 点击候选查看 K 线、计划入场/止损/止盈 → 生成 Paper plan → Risk Gate 解释边界 → 确认后写入本地 Paper 账本并打开运行记录。
+Demo 建议按 2–3 分钟讲清楚：先在“市场情报”筛选 Binance 官方活动、展示原文规则链接与当前市场关联；再输入“扫描全市场” → Agent 读取 Binance 行情并返回结构化候选 → 点击候选查看 K 线、计划入场/止损/止盈 → 生成 Paper plan → Risk Gate 解释边界 → 确认后写入本地 Paper 账本并打开运行记录。
 
 - 录屏脚本：`docs/DEMO-SCRIPT.md`
 - 提交文案：`docs/SUBMISSION.md`
