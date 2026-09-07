@@ -134,3 +134,31 @@ export type AgentRun = {
 };
 
 export type Kline = { time: number; open: number; high: number; low: number; close: number; volume?: number; quoteVolume?: number };
+
+export type IntelligenceContext = {
+  assets: Array<{
+    asset: string;
+    futuresSymbol: string | null;
+    change24hPct: number | null;
+    volumeUsd: number | null;
+    fundingRate: number | null;
+    oiChangePct: number | null;
+    candidateStrategies: string[];
+  }>;
+};
+
+export type IntelligenceItem = {
+  id: string;
+  title: string;
+  source: string;
+  type: "activity" | "announcement" | "news";
+  publishedAt: string | null;
+  url: string;
+  summary: string;
+  assets: string[];
+  stale?: boolean;
+  marketContext?: IntelligenceContext;
+};
+
+export type IntelligenceSourceState = { source: string; lastSuccessAt: number | null; stale: boolean; error?: string | null };
+export type IntelligenceFeed = { items: IntelligenceItem[]; sources: Record<string, IntelligenceSourceState>; stale: boolean; fetchedAt: string };

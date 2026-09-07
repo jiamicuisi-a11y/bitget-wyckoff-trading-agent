@@ -1,6 +1,12 @@
 const BINANCE_CMS = "https://www.binance.com/bapi/composite/v1/public/cms/article/list/query";
 const COINDESK_RSS = "https://www.coindesk.com/arc/outboundfeeds/rss/";
 const MAJOR_ASSETS = new Set(["BTC", "ETH", "SOL", "BNB", "XRP", "DOGE", "ADA", "AVAX", "LINK", "SUI", "TON", "TRX", "DOT", "LTC", "BCH", "UNI", "AAVE", "PEPE", "SHIB", "NEAR", "ATOM", "ARB", "OP"]);
+const ASSET_ALIASES = [
+  ["BITCOIN", "BTC"],
+  ["ETHEREUM", "ETH"],
+  ["SOLANA", "SOL"],
+  ["BINANCE COIN", "BNB"],
+];
 
 export const INTELLIGENCE_SOURCES = [
   { key: "binance_activity", label: "Binance 官方活动", type: "activity", catalogId: 93 },
@@ -45,6 +51,9 @@ function stableId(value) {
 export function extractAssets(text) {
   const value = String(text || "").toUpperCase();
   const result = [];
+  for (const [name, symbol] of ASSET_ALIASES) {
+    if (new RegExp(`\\b${name}\\b`).test(value)) result.push(symbol);
+  }
   const pattern = /\b([A-Z0-9]{2,12})USDT\b|\b([A-Z0-9]{2,12})\b/g;
   let match;
   while ((match = pattern.exec(value))) {

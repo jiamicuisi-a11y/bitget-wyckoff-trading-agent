@@ -1,4 +1,4 @@
-import type { EquityPoint, Kline, StrategyKey, StrategyState, StrategySummary } from "./strategy-types";
+import type { EquityPoint, IntelligenceFeed, Kline, StrategyKey, StrategyState, StrategySummary } from "./strategy-types";
 
 async function readJson<T>(path: string): Promise<T> {
   const response = await fetch(path, { cache: "no-store" });
@@ -49,6 +49,14 @@ export async function loadKlines(strategy: StrategyKey, symbol: string, granular
     }
   }
   throw lastError instanceof Error ? lastError : new Error("K 线读取失败");
+}
+
+export async function loadIntelligenceFeed(filters: { source?: string; type?: string; asset?: string } = {}) {
+  const params = new URLSearchParams({ view: "feed" });
+  if (filters.source && filters.source !== "all") params.set("source", filters.source);
+  if (filters.type && filters.type !== "all") params.set("type", filters.type);
+  if (filters.asset?.trim()) params.set("asset", filters.asset.trim().toUpperCase());
+  return readJson<IntelligenceFeed>(`/api/intelligence?${params.toString()}`);
 }
 
 export function formatTime(value?: number | string | null) {

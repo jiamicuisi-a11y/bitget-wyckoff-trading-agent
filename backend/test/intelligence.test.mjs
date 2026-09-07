@@ -10,8 +10,8 @@ import {
 
 test("extractAssets finds major assets and futures symbols without duplicates", () => {
   assert.deepEqual(
-    extractAssets("BTC, ETH and PONSUSDT will trade alongside BTCUSDT."),
-    ["BTC", "ETH", "PONS"]
+    extractAssets("Bitcoin, Ethereum, Solana and PONSUSDT will trade alongside BTCUSDT."),
+    ["BTC", "ETH", "SOL", "PONS"]
   );
 });
 

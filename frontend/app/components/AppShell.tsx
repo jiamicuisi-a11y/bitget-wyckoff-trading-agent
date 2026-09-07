@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 const links = [
   { href: "/overview", label: "总览", icon: "▦" },
   { href: "/agent", label: "Agent 对话", icon: "✦" },
+  { href: "/intelligence", label: "市场情报", icon: "◌" },
   { href: "/radar/anomaly", label: "A档异动扫描", icon: "◉" },
   { href: "/radar/dualma", label: "双均线 4H", icon: "⌁" },
   { href: "/radar/box-breakout", label: "30m 箱体突破", icon: "↥" },
@@ -26,11 +27,11 @@ export default function AppShell({ children, title, eyebrow }: { children: React
         </Link>
         <div className="sidebar-label">WORKSPACE</div>
         <nav className="product-nav">
-          {links.slice(0, 4).map((link) => <Link key={link.href} href={link.href} className={`product-nav-item ${pathname === link.href ? "selected" : ""}`}><span>{link.icon}</span>{link.label}</Link>)}
+          {links.slice(0, 6).map((link) => <Link key={link.href} href={link.href} className={`product-nav-item ${pathname === link.href ? "selected" : ""}`}><span>{link.icon}</span>{link.label}</Link>)}
         </nav>
         <div className="sidebar-label">CONTROL PLANE</div>
         <nav className="product-nav">
-          {links.slice(4).map((link) => <Link key={link.href} href={link.href} className={`product-nav-item ${pathname === link.href ? "selected" : ""}`}><span>{link.icon}</span>{link.label}</Link>)}
+          {links.slice(6).map((link) => <Link key={link.href} href={link.href} className={`product-nav-item ${pathname === link.href ? "selected" : ""}`}><span>{link.icon}</span>{link.label}</Link>)}
         </nav>
         <div className="sidebar-spacer" />
         <div className="safe-card"><span className="status-dot" /> <strong>PAPER MODE</strong><p>只读行情 · 本地模拟执行</p><small>broadcast=false</small></div>
