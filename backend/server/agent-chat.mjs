@@ -55,6 +55,11 @@ function extractSymbol(text) {
   return match?.[1]?.toUpperCase() || null;
 }
 
+function extractAsset(text) {
+  const match = String(text || "").match(/\b(btc|eth|sol|bnb|xrp|doge|ada|avax|link|sui|ton|trx|dot|ltc|bch|uni|aave|pepe|shib|near|atom|arb|op)(?:usdt)?\b/i);
+  return match?.[1]?.toUpperCase() || null;
+}
+
 function extractRunId(text) {
   return text.match(/\b(?:agent|run)-[a-z0-9_-]+\b/i)?.[0] || null;
 }
@@ -97,6 +102,7 @@ export function routeIntent(message, fallbackStrategy, capabilities = {}) {
   const normalized = normalizeCapabilities(capabilities);
   const strategy = chooseStrategy(text, normalized, fallbackStrategy);
   const symbol = extractSymbol(text);
+  const asset = extractAsset(text);
   const plan = { strategy, intent: "overview", toolNames: [], toolArgs: {}, needsInput: false, prompt: null };
   const strategyMatched = normalized.strategies.some((item) => item.key === strategy && strategyAliases(item).some((alias) => text.includes(alias)));
   const wantsCapabilities = hasAny(text, ["能做什么", "可以做什么", "支持什么", "有哪些工具", "mcp能力", "mcp 工具", "工具清单"]);
@@ -107,6 +113,8 @@ export function routeIntent(message, fallbackStrategy, capabilities = {}) {
       || hasAny(text, ["哪些", "哪几个", "哪幾個", "上升", "增加", "排名", "排行", "全市场", "全市場", "涨幅"])
   );
   const wantsAudit = hasAny(text, ["运行记录", "审计", "run id", "run-id", "agent-"]);
+  const wantsActivities = hasAny(text, ["活动", "报名", "参加", "launchpool", "空投", "launchpad", "赚币"]);
+  const wantsIntelligence = hasAny(text, ["新闻", "资讯", "公告", "消息", "事件", "上币", "下架"]);
   const wantsRisk = hasAny(text, ["风险", "风控", "止损", "止盈", "杠杆", "风险闸门"]);
   const wantsPosition = hasAny(text, ["持仓", "仓位", "开仓", "交易理由", "为什么"]);
   const wantsPerformance = hasAny(text, ["收益", "权益", "回撤", "胜率", "表现", "绩效", "盈亏"]);
@@ -114,6 +122,16 @@ export function routeIntent(message, fallbackStrategy, capabilities = {}) {
   const wantsSignal = hasAny(text, ["策略", "信号", "金叉", "死叉", "均线", "ema", "套利", "箱体", "突破"]);
 
   if (wantsCapabilities) return { ...plan, intent: "capabilities" };
+
+  if (wantsActivities) {
+    addTool(plan, "binance_activity_list", { ...(asset ? { asset } : {}), limit: extractLimit(text) }, normalized);
+    return { ...plan, intent: "activities" };
+  }
+
+  if (wantsIntelligence) {
+    addTool(plan, "market_intelligence_feed", { ...(asset ? { asset } : {}), limit: extractLimit(text) }, normalized);
+    return { ...plan, intent: "intelligence" };
+  }
 
   if (wantsAudit) {
     const runId = extractRunId(text);
@@ -187,6 +205,9 @@ function resultSummary(name, result) {
       ? `OI ${window} 分钟历史未准备好，已积累 ${value.observedMinutes ?? 0} 分钟`
       : `OI ${window} 分钟排名返回 ${count} 个合约`;
   }
+  if (name === "market_intelligence_feed") return `返回 ${value.items?.length ?? 0} 条公开资讯${value.stale ? "（含缓存数据）" : ""}`;
+  if (name === "binance_activity_list") return `返回 ${value.items?.length ?? 0} 个 Binance 官方活动${value.stale ? "（含缓存数据）" : ""}`;
+  if (name === "event_market_context") return value.item?.title || "事件关联已读取";
   if (name === "audit_get_run") return value.runId ? `已读取运行记录 ${value.runId}` : "未找到运行记录";
   return "工具调用完成";
 }
@@ -204,6 +225,16 @@ function candidateLines(strategyResult) {
     const reason = candidate.tag || candidate.reason || "策略条件满足";
     return `${index + 1}. ${symbol} · ${direction} · 评分 ${candidate.score ?? "—"} · ${reason}`;
   }).join("\n");
+}
+
+function intelligenceLines(feed) {
+  const items = feed?.items || [];
+  if (!items.length) return "当前没有匹配的公开资料，或数据源暂时不可用。";
+  return items.slice(0, 6).map((item, index) => {
+    const assets = item.assets?.length ? ` · ${item.assets.join(", ")}` : "";
+    const cached = item.stale ? " · 缓存" : "";
+    return `${index + 1}. ${item.title}${assets}${cached}\n${item.source} · ${item.publishedAt || "时间未提供"}\n${item.url}`;
+  }).join("\n\n");
 }
 
 function buildOpportunityPlans(strategyResult) {
@@ -238,10 +269,12 @@ export function formatAgentResponse({ strategy, intent = "overview", toolResults
   const oi = firstResult(toolResults, "binance_get_open_interest");
   const oiLeaders = firstResult(toolResults, "binance_open_interest_leaders");
   const audit = firstResult(toolResults, "audit_get_run");
+  const intelligence = firstResult(toolResults, "market_intelligence_feed");
+  const activities = firstResult(toolResults, "binance_activity_list");
   const label = strategyLabel(strategy, normalized);
   const stats = paper?.stats || {};
   const scannedCount = market?.scannedCount ?? strategyResult?.scannedCount ?? "—";
-  const dataAsOf = market?.asOf || strategyResult?.asOf || paper?.asOf || klines?.asOf || oi?.asOf || oiLeaders?.asOf || null;
+  const dataAsOf = market?.asOf || strategyResult?.asOf || paper?.asOf || klines?.asOf || oi?.asOf || oiLeaders?.asOf || intelligence?.fetchedAt || activities?.fetchedAt || null;
   const opportunities = buildOpportunityPlans(strategyResult);
   let reply = `这是 ${label} 的 Binance Futures 公开数据分析，当前只在 Paper 模式运行。`;
 
@@ -270,6 +303,12 @@ export function formatAgentResponse({ strategy, intent = "overview", toolResults
     }
   } else if (intent === "audit") {
     reply += `\n\n已读取运行记录 ${audit?.runId || "—"}，记录${audit?.run ? "存在" : "未找到"}。`;
+  } else if (intent === "activities") {
+    reply = "以下是 Binance 官方公开活动。请先打开原始规则确认地区、资格、截止时间和最终参与条件；本地 Agent 不登录、不报名，也不判断你是否符合资格。";
+    reply += `\n\n${intelligenceLines(activities)}`;
+  } else if (intent === "intelligence") {
+    reply = "以下是可核验的公开市场资讯与 Binance 公告。市场数据只用于展示当前状态，不代表事件与价格存在因果关系。";
+    reply += `\n\n${intelligenceLines(intelligence)}`;
   } else if (intent === "market") {
     reply += `\n\n本轮数据覆盖 ${scannedCount} 个 USDT 永续合约，数据时间：${dataAsOf || "等待下一轮扫描"}。`;
     reply += `\n\n候选摘要：\n${candidateLines(strategyResult)}`;
@@ -290,9 +329,9 @@ export function formatAgentResponse({ strategy, intent = "overview", toolResults
   return {
     reply,
     evidence: {
-      source: "binance-public-data",
+      source: intelligence || activities ? "public-intelligence" : "binance-public-data",
       asOf: dataAsOf,
-      candidateCount: strategyResult?.candidateCount ?? strategyResult?.candidates?.length ?? strategyResult?.hits?.length ?? oiLeaders?.leaders?.length ?? 0,
+      candidateCount: strategyResult?.candidateCount ?? strategyResult?.candidates?.length ?? strategyResult?.hits?.length ?? oiLeaders?.leaders?.length ?? intelligence?.items?.length ?? activities?.items?.length ?? 0,
       positionCount: paper?.positions?.length ?? 0,
     },
     decision: risk || { requiresHumanConfirmation: true },

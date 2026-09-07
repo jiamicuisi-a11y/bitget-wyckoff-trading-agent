@@ -110,6 +110,40 @@ export async function createMcpRuntime(context, options = {}) {
   );
 
   server.registerTool(
+    "market_intelligence_feed",
+    {
+      title: "市场资讯与公告",
+      description: "读取公开 Binance 公告和加密行业资讯，保留来源与原文链接；不使用账户数据。",
+      inputSchema: {
+        source: z.enum(["all", "binance_activity", "binance_announcement", "binance_listing", "coindesk"]).optional(),
+        asset: z.string().min(2).max(12).optional(),
+        limit: z.number().int().min(1).max(50).optional(),
+      },
+    },
+    guardedTool(context, "market_intelligence_feed", async (args) => withSafety(await context.getIntelligenceFeed(args), { source: "public-intelligence" }))
+  );
+
+  server.registerTool(
+    "binance_activity_list",
+    {
+      title: "Binance 官方活动",
+      description: "读取公开 Binance 活动和原始规则链接；不代表报名资格，也不会执行报名。",
+      inputSchema: { asset: z.string().min(2).max(12).optional(), limit: z.number().int().min(1).max(30).optional() },
+    },
+    guardedTool(context, "binance_activity_list", async (args) => withSafety(await context.getBinanceActivities(args), { source: "binance-public-cms" }))
+  );
+
+  server.registerTool(
+    "event_market_context",
+    {
+      title: "事件市场关联",
+      description: "读取公开事件关联的 Binance Futures 行情和策略候选，不推断事件与价格的因果关系。",
+      inputSchema: { id: z.string().min(3).max(240) },
+    },
+    guardedTool(context, "event_market_context", async ({ id }) => withSafety(await context.getEventMarketContext({ id }), { source: "public-intelligence" }))
+  );
+
+  server.registerTool(
     "strategy_evaluate",
     {
       title: "策略评估",

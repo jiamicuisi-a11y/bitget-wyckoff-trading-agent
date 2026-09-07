@@ -29,6 +29,10 @@ import {
   persistAgentRun,
   appendOiHistory,
   getOiHistorySince,
+  getIntelligenceSourceState,
+  listIntelligenceItems,
+  setIntelligenceSourceState,
+  upsertIntelligenceItems,
 } from "./db.mjs";
 import { SOURCES, getSource } from "./sources.mjs";
 import { STRATEGIES, getStrategy, listStrategies } from "./strategies.mjs";
@@ -49,6 +53,7 @@ import { fetchOptionChain, scanBoxSpreads, scanParity } from "./arb-options.mjs"
 import { createMcpRuntime } from "./mcp-runtime.mjs";
 import { runAgentChat } from "./agent-chat.mjs";
 import { rankOpenInterestLeaders } from "./oi-analysis.mjs";
+import { createIntelligenceService, INTELLIGENCE_SOURCES } from "./intelligence.mjs";
 
 const PORT = Number(process.env.QUANT_PORT || 8800);
 const SCAN_INTERVAL_SEC = Number(process.env.QUANT_SCAN_INTERVAL_SEC || 120);
@@ -89,6 +94,25 @@ let scanStatus = "starting";
 let scanStartedAt = null;
 
 let scanning = false;
+
+const intelligence = createIntelligenceService({
+  listItems: listIntelligenceItems,
+  saveItems: upsertIntelligenceItems,
+  getSourceState: getIntelligenceSourceState,
+  setSourceState: setIntelligenceSourceState,
+  getMarketData: () => {
+    const candidatesByStrategy = Object.fromEntries(
+      STRATEGIES
+        .filter((strategy) => strategy.source === "binance")
+        .map((strategy) => [strategy.key, latestScanByStrategy[strategy.key]?.allCandidates || []])
+    );
+    const oiBySymbol = {};
+    for (const candidate of latestScanByStrategy["anomaly-binance"]?.allCandidates || []) {
+      oiBySymbol[candidate.symbol] = { changePct: candidate.oiChangePct ?? null };
+    }
+    return { tickers: latestMarketBySource.binance || [], candidatesByStrategy, oiBySymbol };
+  },
+});
 
 function getBinanceScannerStrategy() {
   return STRATEGIES.find((strategy) => strategy.source === "binance" && strategy.kind === "scanner")
@@ -338,6 +362,20 @@ function createAgentContext() {
 
     async getAuditRun({ runId }) {
       return { runId, run: getAgentRun(runId), asOf: new Date().toISOString() };
+    },
+
+    async getIntelligenceFeed(filters) {
+      return intelligence.getFeed(filters);
+    },
+
+    async getBinanceActivities(filters) {
+      return intelligence.getActivities(filters);
+    },
+
+    async getEventMarketContext({ id }) {
+      const item = await intelligence.getEvent(id);
+      if (!item) throw new Error("事件不存在或数据源暂不可用");
+      return { item, asOf: new Date().toISOString() };
     },
   };
 }
@@ -662,6 +700,34 @@ const server = createServer(async (req, res) => {
         };
       });
       return sendJson(res, 200, { strategies: list, scanIntervalSec: SCAN_INTERVAL_SEC });
+    }
+
+    if (path === "/api/intelligence/feed" && req.method === "GET") {
+      const source = url.searchParams.get("source") || "all";
+      const type = url.searchParams.get("type") || "all";
+      const asset = url.searchParams.get("asset") || "";
+      if (source !== "all" && !INTELLIGENCE_SOURCES.some((item) => item.key === source)) {
+        return sendJson(res, 400, { error: "不支持的数据源" });
+      }
+      if (!new Set(["all", "activity", "announcement", "news"]).has(type)) {
+        return sendJson(res, 400, { error: "不支持的事件类型" });
+      }
+      return sendJson(res, 200, await intelligence.getFeed({ source, type, asset, limit: url.searchParams.get("limit") || 60 }));
+    }
+
+    if (path === "/api/intelligence/activities" && req.method === "GET") {
+      return sendJson(res, 200, await intelligence.getActivities({
+        asset: url.searchParams.get("asset") || "",
+        limit: url.searchParams.get("limit") || 30,
+      }));
+    }
+
+    if (path === "/api/intelligence/event" && req.method === "GET") {
+      const id = url.searchParams.get("id");
+      if (!id) return sendJson(res, 400, { error: "缺少事件 ID" });
+      const item = await intelligence.getEvent(id);
+      if (!item) return sendJson(res, 404, { error: "事件不存在或数据源暂不可用" });
+      return sendJson(res, 200, { item });
     }
 
     if (path === "/api/agent/run" && req.method === "POST") {
