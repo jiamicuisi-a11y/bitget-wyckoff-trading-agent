@@ -1,5 +1,4 @@
 const BINANCE_CMS = "https://www.binance.com/bapi/composite/v1/public/cms/article/list/query";
-const COINDESK_RSS = "https://www.coindesk.com/arc/outboundfeeds/rss/";
 const MAJOR_ASSETS = new Set(["BTC", "ETH", "SOL", "BNB", "XRP", "DOGE", "ADA", "AVAX", "LINK", "SUI", "TON", "TRX", "DOT", "LTC", "BCH", "UNI", "AAVE", "PEPE", "SHIB", "NEAR", "ATOM", "ARB", "OP"]);
 const ASSET_ALIASES = [
   ["BITCOIN", "BTC"],
@@ -9,10 +8,9 @@ const ASSET_ALIASES = [
 ];
 
 export const INTELLIGENCE_SOURCES = [
-  { key: "binance_activity", label: "Binance 官方活动", type: "activity", catalogId: 93 },
-  { key: "binance_announcement", label: "Binance 公告", type: "announcement", catalogId: 49 },
-  { key: "binance_listing", label: "Binance 上币公告", type: "announcement", catalogId: 48 },
-  { key: "coindesk", label: "CoinDesk", type: "news", url: COINDESK_RSS },
+  { key: "binance_activity", label: "币安官方活动", type: "activity", catalogId: 93 },
+  { key: "binance_announcement", label: "币安公告", type: "announcement", catalogId: 49 },
+  { key: "binance_listing", label: "币安上币公告", type: "announcement", catalogId: 48 },
 ];
 
 function unique(values) {
@@ -77,7 +75,7 @@ export function parseBinanceCatalog(payload, source, type) {
         source,
         type,
         publishedAt: toIso(article.releaseDate || article.publishDate),
-        url: `https://www.binance.com/en/support/announcement/${externalId}`,
+        url: `https://www.binance.com/zh-CN/support/announcement/${externalId}`,
         summary,
         assets: extractAssets(`${article.title} ${summary}`),
         rawAvailable: false,
@@ -119,7 +117,12 @@ function binanceCatalogUrl(catalogId) {
 }
 
 function sourceDefinition(source) {
-  if (source.catalogId) return { ...source, url: binanceCatalogUrl(source.catalogId), parser: parseBinanceCatalog };
+  if (source.catalogId) return {
+    ...source,
+    url: binanceCatalogUrl(source.catalogId),
+    parser: parseBinanceCatalog,
+    headers: { "Accept-Language": "zh-CN,zh;q=0.9", lang: "zh-CN", language: "zh-CN" },
+  };
   return { ...source, parser: parseRssFeed };
 }
 
@@ -165,7 +168,7 @@ export function createIntelligenceService({
     const definition = sourceDefinition(source);
     const attemptedAt = now();
     try {
-      const response = await fetchImpl(definition.url, { signal: AbortSignal.timeout(8000), headers: { Accept: "application/json, application/xml, text/xml;q=0.9" } });
+      const response = await fetchImpl(definition.url, { signal: AbortSignal.timeout(8000), headers: { Accept: "application/json, application/xml, text/xml;q=0.9", ...definition.headers } });
       if (!response.ok) throw new Error(`${source.key} HTTP ${response.status}`);
       const body = source.catalogId ? await response.json() : await response.text();
       const items = source.catalogId

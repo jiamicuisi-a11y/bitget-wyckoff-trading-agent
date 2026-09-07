@@ -7,10 +7,9 @@ import type { IntelligenceFeed, IntelligenceItem } from "../lib/strategy-types";
 
 const sourceLabels: Record<string, string> = {
   all: "全部来源",
-  binance_activity: "Binance 活动",
-  binance_announcement: "Binance 公告",
+  binance_activity: "币安活动",
+  binance_announcement: "币安公告",
   binance_listing: "上币公告",
-  coindesk: "CoinDesk",
 };
 
 const strategyLabels: Record<string, string> = {
@@ -26,7 +25,7 @@ function sourceLabel(source: string) {
 function EventCard({ item }: { item: IntelligenceItem }) {
   const contexts = item.marketContext?.assets || [];
   return <article className="intelligence-card">
-    <div className="intelligence-card-top"><span className={`intelligence-type ${item.type}`}>{item.type === "activity" ? "官方活动" : item.type === "announcement" ? "Binance 公告" : "行业资讯"}</span><span>{formatTime(item.publishedAt)}</span></div>
+    <div className="intelligence-card-top"><span className={`intelligence-type ${item.type}`}>{item.type === "activity" ? "官方活动" : item.type === "announcement" ? "币安公告" : "市场资讯"}</span><span>{formatTime(item.publishedAt)}</span></div>
     <h3>{item.title}</h3>
     {item.summary ? <p>{item.summary}</p> : <p className="intelligence-empty-copy">此公开条目暂未提供摘要，请打开原文查看规则与完整内容。</p>}
     <div className="intelligence-tags">{item.assets.length ? item.assets.map((asset) => <span key={asset}>{asset}</span>) : <span className="muted">未识别关联币种</span>}</div>
@@ -67,10 +66,10 @@ export default function IntelligencePage() {
   const linked = useMemo(() => items.filter((item) => item.marketContext?.assets.some((context) => context.candidateStrategies.length)).length, [items]);
   const staleSources = Object.values(feed?.sources || {}).filter((state) => state.stale);
 
-  return <AppShell title="市场情报" eyebrow="EVENT INTELLIGENCE">
+  return <AppShell title="市场情报" eyebrow="事件情报">
     <section className="intelligence-hero">
-      <div><span className="page-eyebrow">PUBLIC SOURCES · MARKET CONTEXT</span><h2>看见事件，<em>再看市场反应。</em></h2><p>Binance 官方活动、公告与行业资讯在同一处呈现；每条记录都有来源、时间和原文入口，并与公开行情和当前策略候选做只读关联。</p></div>
-      <div className="intelligence-hero-mark"><span>LIVE</span><strong>{loading ? "SYNC" : "READY"}</strong><small>public data only</small></div>
+      <div><span className="page-eyebrow">公开来源 · 市场关联</span><h2>看见事件，<em>再看市场反应。</em></h2><p>币安中文站的官方活动、公告与上币动态在同一处呈现；每条记录都有来源、时间和原文入口，并与公开行情和当前策略候选做只读关联。</p></div>
+      <div className="intelligence-hero-mark"><span>实时</span><strong>{loading ? "同步中" : "已就绪"}</strong><small>仅公开数据</small></div>
     </section>
 
     <section className="intelligence-kpis">
@@ -90,10 +89,10 @@ export default function IntelligencePage() {
     {staleSources.length ? <div className="intelligence-stale">部分来源暂时不可用，页面正在显示最近一次成功读取的缓存数据：{staleSources.map((state) => sourceLabel(state.source)).join("、")}。</div> : null}
 
     <section className="intelligence-layout">
-      <div className="intelligence-stream-panel"><div className="section-title"><div><span className="table-kicker">MARKET EVENTS</span><h2>市场资讯与公告</h2></div><small>{events.length} 条</small></div><div className="intelligence-scroll">{events.length ? events.map((item) => <EventCard key={item.id} item={item} />) : <div className="empty-state">当前筛选条件下没有资讯；可切换来源或清除币种筛选。</div>}</div></div>
-      <aside className="intelligence-activity-panel"><div className="section-title"><div><span className="table-kicker">BINANCE ACTIVITIES</span><h2>官方活动入口</h2></div><small>{activities.length} 个</small></div><p className="activity-panel-note">打开规则前请核对地区、资格、截止时间和资金要求。页面只提供公开信息，不会替你报名。</p><div className="intelligence-scroll activity-list">{activities.length ? activities.map((item) => <EventCard key={item.id} item={item} />) : <div className="empty-state">当前筛选条件下没有官方活动。</div>}</div></aside>
+      <div className="intelligence-stream-panel"><div className="section-title"><div><span className="table-kicker">市场事件</span><h2>市场资讯与公告</h2></div><small>{events.length} 条</small></div><div className="intelligence-scroll">{events.length ? events.map((item) => <EventCard key={item.id} item={item} />) : <div className="empty-state">当前筛选条件下没有资讯；可切换来源或清除币种筛选。</div>}</div></div>
+      <aside className="intelligence-activity-panel"><div className="section-title"><div><span className="table-kicker">币安官方活动</span><h2>官方活动入口</h2></div><small>{activities.length} 个</small></div><p className="activity-panel-note">打开规则前请核对地区、资格、截止时间和资金要求。页面只提供公开信息，不会替你报名。</p><div className="intelligence-scroll activity-list">{activities.length ? activities.map((item) => <EventCard key={item.id} item={item} />) : <div className="empty-state">当前筛选条件下没有官方活动。</div>}</div></aside>
     </section>
 
-    <section className="intelligence-source-status"><div><span className="table-kicker">SOURCE STATUS</span><h2>数据来源状态</h2></div><div>{Object.values(feed?.sources || {}).map((state) => <span key={state.source} className={state.stale ? "stale" : "live"}><i />{sourceLabel(state.source)} · {state.stale ? "缓存" : "已同步"}</span>)}</div></section>
+    <section className="intelligence-source-status"><div><span className="table-kicker">数据来源状态</span><h2>数据来源状态</h2></div><div>{Object.values(feed?.sources || {}).map((state) => <span key={state.source} className={state.stale ? "stale" : "live"}><i />{sourceLabel(state.source)} · {state.stale ? "缓存" : "已同步"}</span>)}</div></section>
   </AppShell>;
 }

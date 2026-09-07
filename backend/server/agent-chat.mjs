@@ -230,10 +230,11 @@ function candidateLines(strategyResult) {
 function intelligenceLines(feed) {
   const items = feed?.items || [];
   if (!items.length) return "当前没有匹配的公开资料，或数据源暂时不可用。";
+  const sourceLabels = { binance_activity: "币安活动", binance_announcement: "币安公告", binance_listing: "币安上币公告" };
   return items.slice(0, 6).map((item, index) => {
     const assets = item.assets?.length ? ` · ${item.assets.join(", ")}` : "";
     const cached = item.stale ? " · 缓存" : "";
-    return `${index + 1}. ${item.title}${assets}${cached}\n${item.source} · ${item.publishedAt || "时间未提供"}\n${item.url}`;
+    return `${index + 1}. ${item.title}${assets}${cached}\n${sourceLabels[item.source] || "公开资料"} · ${item.publishedAt || "时间未提供"}\n${item.url}`;
   }).join("\n\n");
 }
 
@@ -304,10 +305,10 @@ export function formatAgentResponse({ strategy, intent = "overview", toolResults
   } else if (intent === "audit") {
     reply += `\n\n已读取运行记录 ${audit?.runId || "—"}，记录${audit?.run ? "存在" : "未找到"}。`;
   } else if (intent === "activities") {
-    reply = "以下是 Binance 官方公开活动。请先打开原始规则确认地区、资格、截止时间和最终参与条件；本地 Agent 不登录、不报名，也不判断你是否符合资格。";
+    reply = "以下是币安中文站的官方公开活动。请先打开原始规则确认地区、资格、截止时间和最终参与条件；本地 Agent 不登录、不报名，也不判断你是否符合资格。";
     reply += `\n\n${intelligenceLines(activities)}`;
   } else if (intent === "intelligence") {
-    reply = "以下是可核验的公开市场资讯与 Binance 公告。市场数据只用于展示当前状态，不代表事件与价格存在因果关系。";
+    reply = "以下是可核验的币安中文站公告与上币动态。市场数据只用于展示当前状态，不代表事件与价格存在因果关系。";
     reply += `\n\n${intelligenceLines(intelligence)}`;
   } else if (intent === "market") {
     reply += `\n\n本轮数据覆盖 ${scannedCount} 个 USDT 永续合约，数据时间：${dataAsOf || "等待下一轮扫描"}。`;

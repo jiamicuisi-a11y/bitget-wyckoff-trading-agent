@@ -1,14 +1,14 @@
 # 市场情报与 Binance 活动中心设计
 
 **日期：** 2026-09-07  
-**状态：** 已确认设计，待用户审阅后实施  
-**目标：** 在现有 Strategy Copilot 中增加可独立浏览、可由 Agent 查询的市场资讯和 Binance 官方活动信息；新闻、活动、策略候选与公开行情在同一页面可交叉查看。
+**状态：** 已实施
+**目标：** 在现有 Strategy Copilot 中增加可独立浏览、可由 Agent 查询的 Binance 中文站官方活动、公告和上币动态；活动、策略候选与公开行情在同一页面可交叉查看。
 
 ## 目标与边界
 
 用户需要两个并列模块：
 
-1. 市场资讯与事件：展示加密资讯、Binance 官方公告与其关联币种、原文和市场数据。
+1. 市场资讯与事件：展示 Binance 中文站官方公告、上币动态及其关联币种、中文原文和市场数据。
 2. Binance 官方活动：展示仍可能参与的活动、规则入口和关键时间，不替用户登录、报名或完成任何资金动作。
 
 本功能只读取公开资料。它不读取 Binance 账户、API Key、Cookie、钱包、私钥或链上地址，也不代表用户已满足活动资格。页面的“前往官方页面”仅打开原始规则或活动链接。
@@ -29,10 +29,9 @@
 
 | 数据 | 第一版来源 | 刷新与缓存 | 显示来源 |
 | --- | --- | --- | --- |
-| Binance 官方活动 | Binance 公共 CMS，`catalogId=93`（Latest Activities） | 10 分钟内存缓存，最后成功快照写入本地 SQLite | `Binance 官方活动` |
-| Binance 公告/上币等 | Binance 公共 CMS，`catalogId=49`（Latest News）和 `48`（New Cryptocurrency Listing） | 同上 | `Binance 公告` |
-| 行业资讯 | CoinDesk 公开 RSS | 10 分钟内存缓存，最后成功快照写入本地 SQLite | `CoinDesk` |
-| 行情关联 | 现有 Binance Futures ticker/OI 快照 | 复用扫描 worker 最新结果 | `Binance Futures public data` |
+| Binance 官方活动 | Binance 中文站公共 CMS，`catalogId=93`，携带 `zh-CN` 请求头 | 10 分钟内存缓存，最后成功快照写入本地 SQLite | `币安活动` |
+| Binance 公告/上币等 | Binance 中文站公共 CMS，`catalogId=49` 和 `48`，携带 `zh-CN` 请求头 | 同上 | `币安公告` |
+| 行情关联 | 现有 Binance Futures ticker/OI 快照 | 复用扫描 worker 最新结果 | `币安合约公开数据` |
 
 适配层会规范化每条记录为 `id`、`title`、`source`、`type`、`publishedAt`、`url`、`assets`、`summary` 和 `rawAvailable`。币种只从标题与正文中以可解释规则提取；提取不到时显示“未识别币种”，不猜测。
 
@@ -56,7 +55,7 @@
 - `binance_activity_list`：返回 Binance 官方活动和规则入口。
 - `event_market_context`：读取单条事件与其 Binance Futures 市场关联。
 
-Agent 路由新增“新闻、资讯、公告、活动、上币、报名、Launchpool、空投”等中文意图。回答必须带来源与链接；没有数据时明确说明源不可用或无匹配结果。只有真实接入并调用成功的官方 MCP 工具才标注 `Binance MCP`，公共 CMS 和 RSS 一律标注自己的来源。
+Agent 路由新增“新闻、资讯、公告、活动、上币、报名、Launchpool、空投”等中文意图。回答必须带来源与链接；没有数据时明确说明源不可用或无匹配结果。只有真实接入并调用成功的官方 MCP 工具才标注 `Binance MCP`，公共 CMS 一律标注自己的来源。
 
 ## 存储与接口
 
@@ -72,12 +71,12 @@ Next 前端通过同机 API 代理读取这些接口，沿用现有的 8 秒超�
 
 ## 交互与验收
 
-用户可以在侧栏打开市场情报页面，筛选“全部 / 官方活动 / Binance 公告 / 行业资讯”，按币种筛选，并点击每条的官方或新闻原文链接。活动卡不包含“报名成功”“自动参与”或任何真实交易按钮。
+用户可以在侧栏打开市场情报页面，筛选“全部 / 币安活动 / 币安公告 / 上币公告”，按币种筛选，并点击每条的中文官方原文链接。活动卡不包含“报名成功”“自动参与”或任何真实交易按钮。
 
 完成的可验证标准：
 
 1. `/intelligence` 在桌面和移动宽度都可用，侧栏入口正确高亮。
-2. 至少成功展示 Binance Latest Activities、Binance 公告和行业资讯三种实际来源；每条有原文链接与时间。
+2. 至少成功展示币安中文站活动、公告和上币动态三种实际来源；每条有中文原文链接与时间。
 3. 无论单个外部源超时、返回异常或缺少字段，`/overview`、三个策略页、`/agent` 和 Paper worker 保持可用。
 4. Agent 能查询活动与资讯，并在 Tool Trace 中显示实际调用的本地 MCP 工具与来源。
 5. `npm run build`、后端聚焦测试与浏览器页面检查通过。

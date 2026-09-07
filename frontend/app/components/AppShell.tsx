@@ -25,20 +25,20 @@ export default function AppShell({ children, title, eyebrow }: { children: React
           <span className="brand-mark">✦</span>
           <span><strong>Agent OS</strong><small>Strategy Copilot</small></span>
         </Link>
-        <div className="sidebar-label">WORKSPACE</div>
+        <div className="sidebar-label">工作区</div>
         <nav className="product-nav">
           {links.slice(0, 6).map((link) => <Link key={link.href} href={link.href} className={`product-nav-item ${pathname === link.href ? "selected" : ""}`}><span>{link.icon}</span>{link.label}</Link>)}
         </nav>
-        <div className="sidebar-label">CONTROL PLANE</div>
+        <div className="sidebar-label">控制中心</div>
         <nav className="product-nav">
           {links.slice(6).map((link) => <Link key={link.href} href={link.href} className={`product-nav-item ${pathname === link.href ? "selected" : ""}`}><span>{link.icon}</span>{link.label}</Link>)}
         </nav>
         <div className="sidebar-spacer" />
-        <div className="safe-card"><span className="status-dot" /> <strong>PAPER MODE</strong><p>只读行情 · 本地模拟执行</p><small>broadcast=false</small></div>
+        <div className="safe-card"><span className="status-dot" /> <strong>模拟模式</strong><p>只读行情 · 本地模拟执行</p><small>不广播真实交易</small></div>
       </aside>
       <main className="product-main">
-        <header className="product-topbar"><div className="crumb">Strategy Copilot <span>/</span> <strong>{title}</strong></div><div className="topbar-status"><span className="status-dot" />Binance Futures public data</div></header>
-        <div className="page-wrap"><div className="page-intro"><div><span className="page-eyebrow">{eyebrow}</span><h1>{title}</h1></div><div className="boundary-badge">PAPER ONLY <span>•</span> NO WITHDRAWAL</div></div>{children}</div>
+        <header className="product-topbar"><div className="crumb">Strategy Copilot <span>/</span> <strong>{title}</strong></div><div className="topbar-status"><span className="status-dot" />币安合约公开数据</div></header>
+        <div className="page-wrap"><div className="page-intro"><div><span className="page-eyebrow">{eyebrow}</span><h1>{title}</h1></div><div className="boundary-badge">仅模拟 <span>•</span> 不支持提现</div></div>{children}</div>
       </main>
     </div>
   );

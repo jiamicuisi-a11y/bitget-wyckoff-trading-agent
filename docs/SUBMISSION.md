@@ -12,7 +12,7 @@
 
 ## Description
 
-Strategy Copilot 是一个面向 Binance Futures 公开市场数据的交易研究 Agent。它继承此前 Bitget Hackathon 项目的两套 Paper 策略：A 档异动扫描综合 OI、价格、成交额、盘口和资金费率筛选机会；双均线策略在成交额 Top30 永续合约上计算 4H EMA(10/30) 交叉信号。新增的市场情报中心读取 Binance 公开活动/公告与 CoinDesk RSS，保留原文来源与时间，并只读关联公开行情和策略候选。
+Strategy Copilot 是一个面向 Binance Futures 公开市场数据的交易研究 Agent。它继承此前 Bitget Hackathon 项目的两套 Paper 策略：A 档异动扫描综合 OI、价格、成交额、盘口和资金费率筛选机会；双均线策略在成交额 Top30 永续合约上计算 4H EMA(10/30) 交叉信号。新增的市场情报中心读取 Binance 中文站公开活动/公告，保留中文原文来源与时间，并只读关联公开行情和策略候选。
 
 Agent 不把信号直接变成真实订单，而是先生成带理由和风险参数的 Paper plan，经过 Risk Gate 后停在人工确认前。每次运行都留下事件链，便于演示、回放和审计。
 
@@ -21,13 +21,13 @@ Agent 不把信号直接变成真实订单，而是先生成带理由和风险�
 - Binance Futures 公共行情适配：24h ticker、资金费率、OI、K 线。
 - 两套 Binance 策略注册：A 档异动扫描、4H 双均线。
 - Agent command center：自然语言意图输入、策略切换、结构化机会卡、候选 K 线检查器、计划入场/止损/止盈、Risk Gate、Paper 确认和审计事件链。
-- 市场情报中心：独立侧边栏页面、Binance 官方活动规则入口、公告和行业资讯筛选、资产关联、来源状态与缓存降级；Agent 可通过本地只读工具查询同一份资料。
+- 市场情报中心：独立侧边栏页面、Binance 中文站官方活动规则入口、公告和上币动态筛选、资产关联、来源状态与缓存降级；Agent 可通过本地只读工具查询同一份资料。
 - 本地 SQLite Paper 账本，默认不读取账户密钥、不签名、不广播；只有用户点击确认后才写入本地模拟仓。
 - 当实时行情没有命中时，使用明确标注的 `local demo` 事件帮助评委完整理解工作流。
 
 ## Safety and claim boundary
 
-本项目的行情扫描使用公开市场数据；市场情报使用 Binance 公共 CMS 与 CoinDesk RSS。所有权益、持仓、候选和运行结果均属于 Paper simulation 或 local demo。公开 CMS/RSS 不是 Binance MCP 账户授权，项目不声称账户资格或报名状态，不发送真实订单，不执行充值、提现、签名或资金操作。
+本项目的行情扫描使用公开市场数据；市场情报使用 Binance 中文站公共 CMS。所有权益、持仓、候选和运行结果均属于 Paper simulation 或 local demo。公开 CMS 不是 Binance MCP 账户授权，项目不声称账户资格或报名状态，不发送真实订单，不执行充值、提现、签名或资金操作。
 
 ## Demo links
 

@@ -58,9 +58,24 @@ test("parseBinanceCatalog keeps public metadata and official article URL", () =>
 
   const item = parseBinanceCatalog(payload, "binance_activity", "activity")[0];
   assert.equal(item.id, "binance_activity:abc123");
-  assert.equal(item.url, "https://www.binance.com/en/support/announcement/abc123");
+  assert.equal(item.url, "https://www.binance.com/zh-CN/support/announcement/abc123");
   assert.equal(item.publishedAt, "2026-09-06T05:55:11.414Z");
   assert.deepEqual(item.assets, ["SOL"]);
+});
+
+test("service requests the Binance Chinese-language catalog", async () => {
+  let headers;
+  const service = createIntelligenceService({
+    fetchImpl: async (_url, options) => {
+      headers = options.headers;
+      return { ok: true, json: async () => ({ data: { catalogs: [{ articles: [{ code: "cn-1", title: "币安中文站活动", releaseDate: 1_788_674_111_414 }] }] } }) };
+    },
+  });
+  const result = await service.getActivities();
+  assert.equal(headers["Accept-Language"], "zh-CN,zh;q=0.9");
+  assert.equal(headers.lang, "zh-CN");
+  assert.equal(headers.language, "zh-CN");
+  assert.equal(result.items[0].title, "币安中文站活动");
 });
 
 test("parseRssFeed preserves link, publication time, and strips markup from description", () => {
