@@ -20,8 +20,8 @@ Agent 不把信号直接变成真实订单，而是先生成带理由和风险�
 
 - Binance Futures 公共行情适配：24h ticker、资金费率、OI、K 线。
 - 两套 Binance 策略注册：A 档异动扫描、4H 双均线。
-- Agent command center：自然语言意图输入、策略切换、机会流、权益曲线、风险闸门、Paper 持仓和审计事件链。
-- 本地 SQLite Paper 账本，默认不读取账户密钥、不签名、不广播。
+- Agent command center：自然语言意图输入、策略切换、结构化机会卡、候选 K 线检查器、计划入场/止损/止盈、Risk Gate、Paper 确认和审计事件链。
+- 本地 SQLite Paper 账本，默认不读取账户密钥、不签名、不广播；只有用户点击确认后才写入本地模拟仓。
 - 当实时行情没有命中时，使用明确标注的 `local demo` 事件帮助评委完整理解工作流。
 
 ## Safety and claim boundary

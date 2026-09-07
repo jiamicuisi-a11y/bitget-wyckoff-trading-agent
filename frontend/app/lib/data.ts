@@ -14,7 +14,7 @@ async function readJson<T>(path: string): Promise<T> {
 
 export async function loadStrategies() {
   const data = await readJson<{ strategies: StrategySummary[] }>("/api/paper?view=strategies");
-  return data.strategies.filter((strategy) => strategy.key === "anomaly-binance" || strategy.key === "dualma4h-binance");
+  return data.strategies.filter((strategy) => ["anomaly-binance", "dualma4h-binance", "box-breakout30m-binance"].includes(strategy.key));
 }
 
 export async function loadStrategyState(strategy: StrategyKey) {
@@ -23,6 +23,12 @@ export async function loadStrategyState(strategy: StrategyKey) {
     readJson<{ curve: EquityPoint[] }>(`/api/paper?view=equity&strategy=${encodeURIComponent(strategy)}`),
   ]);
   return { state, equity: equity.curve || [] };
+}
+
+export async function loadClosedTrades(strategy: StrategyKey, limit = 10, offset = 0) {
+  return readJson<{ closed: import("./strategy-types").Position[]; total: number; limit: number; offset: number }>(
+    `/api/paper?view=closed&strategy=${encodeURIComponent(strategy)}&limit=${limit}&offset=${offset}`
+  );
 }
 
 export async function loadKlines(strategy: StrategyKey, symbol: string, granularity = "4H") {

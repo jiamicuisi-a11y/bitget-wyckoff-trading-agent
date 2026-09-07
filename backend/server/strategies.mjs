@@ -22,6 +22,7 @@ import { scanTickers, SCAN_CONFIG } from "./scanner.mjs";
 import { ema, latestClosedSignal } from "./indicators.mjs";
 import { managePositionsAsym } from "./paper.mjs";
 import { fetchOptionChain, scanBoxSpreads } from "./arb-options.mjs";
+import { scanBoxBreakouts, scanBoxBreakoutUniverse } from "./box-breakout.mjs";
 
 /** A档 · 异动扫描模拟盘参数（两个源共用同一套，保证可横向对比）。 */
 export const ANOMALY_PAPER = {
@@ -119,6 +120,71 @@ export const DUALMA_4H_PAPER = {
   slow: 30,
   granularity: "4H",
 };
+
+/** 30m 箱体突破多单模拟盘：必须确认已收盘 K 线突破并放量，绝不交易箱体内或仅刺破的信号。 */
+export const BOX_BREAKOUT_30M_PAPER = {
+  riskPerTradePct: 1.5,
+  stopPct: 5,
+  targetR: 2,
+  leverage: 3,
+  cooldownMin: 30,
+  maxHoldHours: 48,
+  takerFeePct: 0.06,
+  maxConcurrent: 4,
+  minScoreToOpen: 60,
+  maxOpenPerCycle: 2,
+  granularity: "30m",
+  klineLimit: 240,
+  topN: 60,
+  boxLookback: 48,
+  minBoxWidthPct: 1,
+  maxBoxWidthPct: 20,
+  breakoutPct: 0.3,
+  volumeMultiplier: 1.5,
+};
+
+function makeBoxBreakoutCandidates(params) {
+  return async function boxBreakoutCandidates(ctx) {
+    const universe = scanBoxBreakoutUniverse(ctx.tickers, ctx.fetchKlines, params)
+      .map((item, index) => ({ ...item, volumeRank: index + 1 }));
+    const candidates = [];
+    const BATCH = 6;
+    for (let i = 0; i < universe.length; i += BATCH) {
+      const batch = universe.slice(i, i + BATCH);
+      const results = await Promise.allSettled(
+        batch.map(async ({ symbol, volumeRank }) => ({
+          symbol,
+          volumeRank,
+          candles: await ctx.fetchKlines(symbol, params.granularity, params.klineLimit),
+        }))
+      );
+      for (const result of results) {
+        if (result.status !== "fulfilled") continue;
+        const { symbol, volumeRank, candles } = result.value;
+        const signal = scanBoxBreakouts(candles, { ...params, symbol, now: Date.now() });
+        if (!signal) continue;
+        candidates.push({
+          ...signal,
+          lastPrice: Number(ctx.priceMap[symbol] || signal.lastPrice),
+          signalClose: signal.lastPrice,
+          volumeRank,
+        });
+      }
+    }
+    ctx.scanDiagnostics = {
+      coverage: {
+        scannedCount: ctx.tickers.length,
+        oiAvailableCount: null,
+        oiEligibleCount: universe.length,
+        scoredCount: universe.length,
+        thresholdCount: candidates.length,
+        signalCount: candidates.length,
+        missingOiCount: null,
+      },
+    };
+    return candidates.sort((a, b) => b.score - a.score);
+  };
+}
 
 /**
  * 双均线实盘候选：对成交额 TopN 标的各拉一段 K 线，
@@ -288,6 +354,16 @@ export const STRATEGIES = [
     source: "binance",
     paper: DUALMA_4H_PAPER,
     candidates: makeDualmaCandidates(DUALMA_4H_PAPER),
+  },
+  {
+    key: "box-breakout30m-binance",
+    name: "30m 箱体突破（Binance）",
+    desc:
+      "Binance USDT 永续成交额 Top60，30m 已收盘 K 线向上站上最近 48 根 K 线箱体上沿且放量 1.5 倍才做多；止损5%、止盈2R，仅 Paper 模拟。",
+    kind: "kline",
+    source: "binance",
+    paper: BOX_BREAKOUT_30M_PAPER,
+    candidates: makeBoxBreakoutCandidates(BOX_BREAKOUT_30M_PAPER),
   },
 ];
 

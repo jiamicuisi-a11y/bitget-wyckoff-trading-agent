@@ -62,7 +62,8 @@ export async function GET(req: Request) {
   if (view === "equity") return pass(`/api/equity?strategy=${strategy}`);
   if (view === "closed") {
     const limit = url.searchParams.get("limit") || "50";
-    return pass(`/api/closed?strategy=${strategy}&limit=${encodeURIComponent(limit)}`);
+    const offset = url.searchParams.get("offset") || "0";
+    return pass(`/api/closed?strategy=${strategy}&limit=${encodeURIComponent(limit)}&offset=${encodeURIComponent(offset)}`);
   }
   if (view === "klines") {
     const symbol = encodeURIComponent(url.searchParams.get("symbol") || "BTCUSDT");

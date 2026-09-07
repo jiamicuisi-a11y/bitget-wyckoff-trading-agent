@@ -32,6 +32,18 @@ test("routes dual-ma questions to the Binance 4H strategy", () => {
   assert.deepEqual(routed.toolNames, ["strategy_evaluate", "paper_get_state"]);
 });
 
+test("routes 30-minute box breakout questions to the box strategy", () => {
+  const routed = routeIntent("现在有没有30分钟箱体突破？", "dualma4h-binance", {
+    ...capabilities,
+    strategies: [
+      ...capabilities.strategies,
+      { key: "box-breakout30m-binance", name: "30m 箱体突破（Binance）", desc: "30m 已收盘 K 线箱体突破" },
+    ],
+  });
+  assert.equal(routed.strategy, "box-breakout30m-binance");
+  assert.deepEqual(routed.toolNames, ["strategy_evaluate"]);
+});
+
 test("response format always keeps the Paper safety boundary", () => {
   const response = formatAgentResponse({ strategy: "anomaly-binance", toolResults: [] });
   assert.equal(response.mode, "paper");

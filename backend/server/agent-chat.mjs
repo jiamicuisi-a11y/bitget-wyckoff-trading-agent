@@ -35,13 +35,17 @@ function strategyAliases(strategy) {
     aliases.push(normalized);
     aliases.push(...normalized.split(/[\s·|/（）()：:,]+/));
   }
+  if (String(strategy.key).includes("box-breakout")) aliases.push("箱体", "箱体突破", "30分钟", "30m", "突破");
   return [...new Set(aliases)].filter((value) => value.length >= 2 && !generic.has(value));
 }
 
 function chooseStrategy(text, capabilities, fallbackStrategy) {
   const strategies = normalizeCapabilities(capabilities).strategies;
-  const matched = strategies.find((strategy) => strategyAliases(strategy).some((alias) => text.includes(alias)));
-  if (matched) return matched.key;
+  const matches = strategies.flatMap((strategy) => strategyAliases(strategy)
+    .filter((alias) => text.includes(alias))
+    .map((alias) => ({ strategy, alias })));
+  matches.sort((a, b) => b.alias.length - a.alias.length);
+  if (matches[0]) return matches[0].strategy.key;
   if (strategies.some((strategy) => strategy.key === fallbackStrategy)) return fallbackStrategy;
   return strategies[0]?.key || fallbackStrategy || null;
 }
@@ -56,6 +60,7 @@ function extractRunId(text) {
 }
 
 function inferGranularity(text) {
+  if (text.includes("30m") || text.includes("30分钟") || text.includes("30 分钟")) return "30m";
   if (text.includes("1h")) return "1H";
   if (text.includes("1d") || text.includes("日线")) return "1D";
   if (text.includes("1w") || text.includes("周线")) return "1W";
@@ -106,7 +111,7 @@ export function routeIntent(message, fallbackStrategy, capabilities = {}) {
   const wantsPosition = hasAny(text, ["持仓", "仓位", "开仓", "交易理由", "为什么"]);
   const wantsPerformance = hasAny(text, ["收益", "权益", "回撤", "胜率", "表现", "绩效", "盈亏"]);
   const wantsMarket = hasAny(text, ["异动", "市场", "扫描", "行情", "机会", "候选", "合约", "成交量", "快照", "signal", "market"]);
-  const wantsSignal = hasAny(text, ["策略", "信号", "金叉", "死叉", "均线", "ema", "套利"]);
+  const wantsSignal = hasAny(text, ["策略", "信号", "金叉", "死叉", "均线", "ema", "套利", "箱体", "突破"]);
 
   if (wantsCapabilities) return { ...plan, intent: "capabilities" };
 
@@ -201,6 +206,28 @@ function candidateLines(strategyResult) {
   }).join("\n");
 }
 
+function buildOpportunityPlans(strategyResult) {
+  const candidates = strategyResult?.candidates || strategyResult?.hits || [];
+  return candidates.slice(0, 8).map((candidate) => {
+    const entry = Number(candidate.lastPrice || 0);
+    const boxBreakout = String(strategyResult?.strategy || "").includes("box-breakout");
+    const stopPct = boxBreakout ? 5 : 3;
+    const targetPct = boxBreakout ? 10 : 6;
+    const long = candidate.direction !== "short";
+    return {
+      symbol: candidate.symbol,
+      direction: candidate.direction,
+      score: candidate.score,
+      reason: candidate.tag || candidate.reason || "策略条件满足",
+      entryPrice: entry,
+      stopPrice: entry > 0 ? entry * (long ? 1 - stopPct / 100 : 1 + stopPct / 100) : null,
+      targetPrice: entry > 0 ? entry * (long ? 1 + targetPct / 100 : 1 - targetPct / 100) : null,
+      status: "ready_for_paper_plan",
+      broadcast: false,
+    };
+  });
+}
+
 export function formatAgentResponse({ strategy, intent = "overview", toolResults = [], capabilities = {} }) {
   const normalized = normalizeCapabilities(capabilities);
   const market = firstResult(toolResults, "binance_market_snapshot");
@@ -215,6 +242,7 @@ export function formatAgentResponse({ strategy, intent = "overview", toolResults
   const stats = paper?.stats || {};
   const scannedCount = market?.scannedCount ?? strategyResult?.scannedCount ?? "—";
   const dataAsOf = market?.asOf || strategyResult?.asOf || paper?.asOf || klines?.asOf || oi?.asOf || oiLeaders?.asOf || null;
+  const opportunities = buildOpportunityPlans(strategyResult);
   let reply = `这是 ${label} 的 Binance Futures 公开数据分析，当前只在 Paper 模式运行。`;
 
   if (intent === "capabilities") {
@@ -268,6 +296,8 @@ export function formatAgentResponse({ strategy, intent = "overview", toolResults
       positionCount: paper?.positions?.length ?? 0,
     },
     decision: risk || { requiresHumanConfirmation: true },
+    opportunities,
+    riskGate: risk || null,
     mode: "paper",
     broadcast: false,
   };

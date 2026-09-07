@@ -54,6 +54,8 @@ async function bitgetKlines(symbol, granularity, limit) {
       high: parseFloat(r[2]),
       low: parseFloat(r[3]),
       close: parseFloat(r[4]),
+      volume: num(r[5]),
+      quoteVolume: num(r[6]),
     }))
     .sort((a, b) => a.time - b.time);
 }
@@ -128,6 +130,8 @@ async function okxKlines(symbol, granularity, limit) {
       high: parseFloat(r[2]),
       low: parseFloat(r[3]),
       close: parseFloat(r[4]),
+      volume: num(r[5]),
+      quoteVolume: num(r[7]),
     }))
     .sort((a, b) => a.time - b.time);
 }
@@ -136,6 +140,7 @@ async function okxKlines(symbol, granularity, limit) {
 // Binance Agent OS 参赛版数据源：只读公开 USDT 永续行情，不需要 API key。
 const BINANCE_FUTURES = "https://fapi.binance.com";
 const BINANCE_TICKERS = `${BINANCE_FUTURES}/fapi/v1/ticker/24hr`;
+const BINANCE_BOOK_TICKERS = `${BINANCE_FUTURES}/fapi/v1/ticker/bookTicker`;
 const BINANCE_PREMIUM = `${BINANCE_FUTURES}/fapi/v1/premiumIndex`;
 const BINANCE_OI = `${BINANCE_FUTURES}/fapi/v1/openInterest`;
 const BINANCE_KLINES = `${BINANCE_FUTURES}/fapi/v1/klines`;
@@ -147,6 +152,8 @@ const BINANCE_INTERVALS = {
   "1W": "1w",
   "1h": "1h",
   "4h": "4h",
+  "30m": "30m",
+  "30M": "30m",
   "1day": "1d",
   "1week": "1w",
 };
@@ -158,26 +165,37 @@ async function binanceOpenInterest(symbol) {
 }
 
 async function binanceFetchMarket() {
-  const [tickerJson, premiumJson] = await Promise.all([
+  const [tickerJson, bookTickerJson, premiumJson] = await Promise.all([
     fetchJson(BINANCE_TICKERS),
+    fetchJson(BINANCE_BOOK_TICKERS),
     fetchJson(BINANCE_PREMIUM),
   ]);
   if (!Array.isArray(tickerJson)) throw new Error("Binance tickers 返回异常");
+  if (!Array.isArray(bookTickerJson)) throw new Error("Binance bookTicker 返回异常");
+  const bookMap = new Map(
+    bookTickerJson.map((row) => [row.symbol, row])
+  );
   const premiumMap = new Map(
     (Array.isArray(premiumJson) ? premiumJson : []).map((r) => [r.symbol, r])
   );
   const rows = tickerJson
     .filter((t) => t.symbol.endsWith("USDT") && Number(t.lastPrice) > 0)
-    .map((t) => ({
-      symbol: t.symbol,
-      lastPr: String(num(t.lastPrice)),
-      holdingAmount: "0",
-      changeUtc24h: String(num(t.priceChangePercent) / 100),
-      fundingRate: String(num(premiumMap.get(t.symbol)?.lastFundingRate)),
-      usdtVolume: String(num(t.quoteVolume)),
-      bidSz: String(num(t.bidQty)),
-      askSz: String(num(t.askQty)),
-    }))
+    .map((t) => {
+      const book = bookMap.get(t.symbol) || {};
+      return {
+        symbol: t.symbol,
+        lastPr: String(num(t.lastPrice)),
+        holdingAmount: "0",
+        changeUtc24h: String(num(t.priceChangePercent) / 100),
+        fundingRate: String(num(premiumMap.get(t.symbol)?.lastFundingRate)),
+        usdtVolume: String(num(t.quoteVolume)),
+        // The A-tier scanner historically uses Bitget bidSz/askSz as its
+        // order-book pressure input. Binance 24hr ticker does not contain
+        // those fields; bookTicker is the equivalent public endpoint.
+        bidSz: String(num(book.bidQty)),
+        askSz: String(num(book.askQty)),
+      };
+    })
     .sort((a, b) => num(b.usdtVolume) - num(a.usdtVolume));
 
   // Binance 没有批量 OI 接口；A 档的“全市场扫描”必须对全量 USDT 永续尝试补齐 OI。
@@ -208,6 +226,8 @@ async function binanceKlines(symbol, granularity, limit) {
       high: num(r[2]),
       low: num(r[3]),
       close: num(r[4]),
+      volume: num(r[5]),
+      quoteVolume: num(r[7]),
     }))
     .filter((r) => r.close > 0)
     .sort((a, b) => a.time - b.time);

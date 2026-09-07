@@ -9,6 +9,9 @@ const closedStmt = db.prepare(
 const openStmt = db.prepare(
   "SELECT * FROM positions WHERE strategy=? AND status='open' ORDER BY open_time DESC"
 );
+const closedCountStmt = db.prepare(
+  "SELECT COUNT(*) AS count FROM positions WHERE strategy=? AND status='closed'"
+);
 const equitySeriesStmt = db.prepare(
   "SELECT ts, equity, cash, open_count FROM equity_points WHERE strategy=? ORDER BY ts ASC"
 );
@@ -92,12 +95,17 @@ export function getOpenPositions(strategy, priceMap = {}) {
   });
 }
 
-/** 某策略最近 N 笔已平仓。 */
-export function getClosedPositions(strategy, limit = 50) {
+/** 某策略已平仓记录，按退出时间倒序分页。 */
+export function getClosedPositions(strategy, limit = 50, offset = 0) {
   const stmt = db.prepare(
-    "SELECT * FROM positions WHERE strategy=? AND status='closed' ORDER BY exit_time DESC LIMIT ?"
+    "SELECT * FROM positions WHERE strategy=? AND status='closed' ORDER BY exit_time DESC LIMIT ? OFFSET ?"
   );
-  return stmt.all(strategy, limit);
+  return stmt.all(strategy, Math.max(1, Number(limit) || 50), Math.max(0, Number(offset) || 0));
+}
+
+/** 某策略全部已平仓记录数量，用于前端分页。 */
+export function getClosedCount(strategy) {
+  return Number(closedCountStmt.get(strategy)?.count || 0);
 }
 
 /** 某策略权益曲线（最多 N 点，等间隔抽样）。 */

@@ -1,4 +1,4 @@
-export type StrategyKey = "anomaly-binance" | "dualma4h-binance";
+export type StrategyKey = "anomaly-binance" | "dualma4h-binance" | "box-breakout30m-binance";
 
 export type StrategySummary = {
   key: string;
@@ -48,6 +48,15 @@ export type Candidate = {
   volumeRank?: number;
   granularity?: string;
   reason?: string;
+  signalClose?: number;
+  boxHigh?: number;
+  boxLow?: number;
+  boxWidthPct?: number;
+  breakoutPct?: number;
+  breakoutCandleTime?: number | null;
+  breakoutVolume?: number;
+  boxAverageVolume?: number;
+  volumeRatio?: number;
 };
 
 export type Scan = {
@@ -124,4 +133,4 @@ export type AgentRun = {
   events?: Array<{ id: number; run_id: string; phase: string; detail: string; status: string; demo: boolean; ts: number }>;
 };
 
-export type Kline = { time: number; open: number; high: number; low: number; close: number };
+export type Kline = { time: number; open: number; high: number; low: number; close: number; volume?: number; quoteVolume?: number };

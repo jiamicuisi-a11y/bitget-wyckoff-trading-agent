@@ -79,7 +79,7 @@ export async function createMcpRuntime(context, options = {}) {
       inputSchema: {
         strategy: strategyEnum,
         symbol: z.string().min(3).max(20),
-        granularity: z.enum(["1H", "4H", "1D", "1W"]),
+        granularity: z.enum(["30m", "30M", "1H", "4H", "1D", "1W"]),
         limit: z.number().int().min(20).max(500).optional(),
       },
     },

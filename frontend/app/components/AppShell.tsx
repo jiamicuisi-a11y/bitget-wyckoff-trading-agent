@@ -9,6 +9,7 @@ const links = [
   { href: "/agent", label: "Agent 对话", icon: "✦" },
   { href: "/radar/anomaly", label: "A档异动扫描", icon: "◉" },
   { href: "/radar/dualma", label: "双均线 4H", icon: "⌁" },
+  { href: "/radar/box-breakout", label: "30m 箱体突破", icon: "↥" },
   { href: "/risk", label: "风险闸门", icon: "◈" },
   { href: "/runs", label: "运行记录", icon: "▤" },
   { href: "/connections", label: "权限与连接", icon: "⚙" },

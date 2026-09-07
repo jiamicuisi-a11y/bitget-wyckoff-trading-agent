@@ -10,7 +10,7 @@ Binance Agent OS Mini Hackathon Track A prototype：一个面向交易研究与�
 当前版本将两套策略接入 Binance Futures 公开行情，并用 Agent OS 风格的工作流呈现：
 
 ```text
-行情感知 → 策略判断 → 风险闸门 → 人工确认 → Paper 执行 → 审计记录
+自然语言扫描 → 候选卡片 → K 线解释 → 风险闸门 → Paper 确认 → 审计记录
 ```
 
 ## Local preview
@@ -44,7 +44,7 @@ https://agent.binance.com/mcp/agentic
 
 ## Track A demo story
 
-Demo 建议按 2–3 分钟讲清楚：输入自然语言交易意图 → Agent 读取 Binance 行情 → A档与双均线给出候选 → 风险闸门解释为什么不自动下单 → 用户确认前的 Paper 状态、权益曲线和审计记录。
+Demo 建议按 2–3 分钟讲清楚：输入“扫描全市场” → Agent 读取 Binance 行情并返回结构化候选 → 点击候选查看 K 线、计划入场/止损/止盈 → 生成 Paper plan → Risk Gate 解释边界 → 确认后写入本地 Paper 账本并打开运行记录。
 
 - 录屏脚本：`docs/DEMO-SCRIPT.md`
 - 提交文案：`docs/SUBMISSION.md`
@@ -54,10 +54,10 @@ Demo 建议按 2–3 分钟讲清楚：输入自然语言交易意图 → Agent 
 
 ## Project layout
 
-- `frontend/app/components/AgentChatPage.tsx`：自然语言 Agent 对话与 MCP Tool Trace
+- `frontend/app/components/AgentChatPage.tsx`：自然语言 Agent 对话、结构化候选、K 线检查器、Paper 确认与 MCP Tool Trace
 - `frontend/app/api/agent/route.ts`：页面到 Agent Tool Layer 的安全代理
 - `frontend/app/globals.css`：Agent OS 控制台视觉系统
 - `backend/server/sources.mjs`：Bitget、OKX、Binance Futures 统一数据源适配
 - `backend/server/strategies.mjs`：A档和双均线策略注册表
-- `backend/server/index.mjs`：扫描 worker 与 `/api/agent/run` 工具编排入口
+- `backend/server/index.mjs`：扫描 worker、`/api/agent/run` Paper 计划入口与 `/api/agent/confirm` 本地 Paper 确认入口
 - `data/quant.db`：本地 Paper 账本

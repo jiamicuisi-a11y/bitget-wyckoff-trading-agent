@@ -42,6 +42,7 @@ import {
   getStats,
   getOpenPositions,
   getClosedPositions,
+  getClosedCount,
   getEquityCurve,
 } from "./stats.mjs";
 import { fetchOptionChain, scanBoxSpreads, scanParity } from "./arb-options.mjs";
@@ -387,7 +388,7 @@ function readJsonBody(req, maxBytes = 16_000) {
   });
 }
 
-function buildAgentRun(strategyKey, intent) {
+function buildAgentRun(strategyKey, intent, candidateInput = null) {
   const strat = getStrategy(strategyKey);
   if (!strat || strat.source !== "binance") {
     const error = new Error("Agent Tool Layer 当前只开放 Binance Track A 策略");
@@ -413,7 +414,12 @@ function buildAgentRun(strategyKey, intent) {
   const threshold = Number(paper.minScoreToOpen ?? 0);
   const eligible = candidates.filter((candidate) => Number(candidate.score) >= threshold);
   const maxPlans = Math.max(0, Number(paper.maxOpenPerCycle ?? 2));
-  const selected = eligible.slice(0, maxPlans);
+  const requestedSymbol = String(candidateInput?.symbol || "").toUpperCase();
+  const requestedDirection = candidateInput?.direction === "short" ? "short" : "long";
+  const requested = requestedSymbol
+    ? eligible.find((candidate) => candidate.symbol === requestedSymbol && candidate.direction === requestedDirection)
+    : null;
+  const selected = requested ? [requested] : eligible.slice(0, maxPlans);
   const stopPct = Number(paper.stopPct ?? 3);
   const targetPct = stopPct * Number(paper.targetR ?? 2);
 
@@ -438,6 +444,7 @@ function buildAgentRun(strategyKey, intent) {
     liveCandidateCount: candidates.length,
     eligibleCandidateCount: eligible.length,
     selectedPlanCount: paperPlan.length,
+    pass: paperPlan.length > 0,
     authorized: false,
     requiresHumanConfirmation: true,
     broadcast: false,
@@ -445,6 +452,7 @@ function buildAgentRun(strategyKey, intent) {
       `每笔风险上限 ${Number(paper.riskPerTradePct ?? 0)}%`,
       `杠杆上限 ${Number(paper.leverage ?? 1)}x`,
       `最大并发 ${Number(paper.maxConcurrent ?? 0)}`,
+      ...(paperPlan.length ? [] : [`没有候选达到开仓分数阈值 ${threshold}`]),
       "人工确认前不发送任何订单",
     ],
   };
@@ -485,6 +493,115 @@ function buildAgentRun(strategyKey, intent) {
 
   persistAgentRun(result);
 
+  return result;
+}
+
+/**
+ * 把用户在 Agent 工作台明确确认的单个候选写入本地 Paper 账本。
+ * 这是唯一一个会改变本地模拟仓状态的 Agent HTTP 动作；它不会调用真实交易接口。
+ */
+function confirmPaperCandidate(strategyKey, candidateInput) {
+  const strat = getStrategy(strategyKey);
+  if (!strat || strat.source !== "binance") {
+    const error = new Error("Agent Paper 确认只开放 Binance 策略");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const scan = latestScanByStrategy[strategyKey];
+  const candidates = Array.isArray(scan?.allCandidates) ? scan.allCandidates : (scan?.hits || []);
+  const symbol = String(candidateInput?.symbol || "").toUpperCase();
+  const direction = candidateInput?.direction === "short" ? "short" : "long";
+  const candidate = candidates.find((item) => item.symbol === symbol && item.direction === direction);
+  if (!candidate) {
+    const error = new Error("候选已不在最新扫描结果中，请重新扫描后再确认");
+    error.statusCode = 409;
+    throw error;
+  }
+
+  ensureAccount(strategyKey);
+  const cfg = strat.paper || {};
+  const priceMap = latestPriceBySource[strat.source] || {};
+  const before = getOpenPositions(strategyKey, priceMap);
+  const maxConcurrent = Number(cfg.maxConcurrent ?? 0);
+  const now = Date.now();
+  const runId = `agent-confirm-${now}-${Math.random().toString(36).slice(2, 8)}`;
+  const stopPct = Number(cfg.stopPct ?? 3);
+  const targetPct = stopPct * Number(cfg.targetR ?? 2);
+  const long = direction === "long";
+  const entryPrice = Number(candidate.lastPrice || priceMap[symbol] || 0);
+  const plan = {
+    symbol,
+    direction,
+    score: candidate.score,
+    reason: candidate.tag || candidate.reason || "策略条件满足",
+    entryPrice,
+    stopPrice: entryPrice > 0 ? entryPrice * (long ? 1 - stopPct / 100 : 1 + stopPct / 100) : null,
+    targetPrice: entryPrice > 0 ? entryPrice * (long ? 1 + targetPct / 100 : 1 - targetPct / 100) : null,
+    leverage: Number(cfg.leverage ?? 1),
+    broadcast: false,
+  };
+
+  const riskReasons = [
+    `止损距离 ${stopPct}%`,
+    `杠杆上限 ${Number(cfg.leverage ?? 1)}x`,
+    `并发上限 ${before.length}/${maxConcurrent}`,
+    "Paper only · broadcast=false",
+  ];
+  const riskBlocked = before.length >= maxConcurrent;
+  const opened = riskBlocked ? 0 : openFromCandidates(strategyKey, [candidate], now, cfg);
+  snapshotEquity(strategyKey, now, priceMap);
+  const after = getOpenPositions(strategyKey, priceMap);
+  const actuallyOpened = opened > 0 && after.length > before.length;
+  const status = riskBlocked ? "blocked_by_risk_gate" : (actuallyOpened ? "opened" : "not_opened");
+  const detail = riskBlocked
+    ? `Risk Gate 拒绝：当前并发 ${before.length}/${maxConcurrent}，未写入 Paper 账本`
+    : actuallyOpened
+      ? `${symbol} 已加入本地 Paper 账本；仅模拟，不广播`
+      : `${symbol} 未新增 Paper 仓位（可能已持仓、处于冷却期或未达到开仓阈值）`;
+  const events = [
+    { phase: "01 · 候选确认", detail: `用户确认 ${symbol} ${direction === "long" ? "做多" : "做空"}，评分 ${candidate.score}`, status: "done" },
+    { phase: "02 · 风险闸门", detail: `${riskBlocked ? "未通过" : "通过"}；${riskReasons.join("；")}`, status: riskBlocked ? "blocked" : "done" },
+    { phase: "03 · Paper 执行", detail, status: actuallyOpened ? "done" : "skipped" },
+    { phase: "04 · 审计记录", detail: `audit.append 记录 ${runId}`, status: "done" },
+  ].map((event, index) => ({ id: now + index, ...event, demo: false, ts: now + index }));
+
+  const result = {
+    ok: true,
+    runId,
+    strategy: strategyKey,
+    source: strat.source,
+    intent: `确认 ${symbol} 加入 Paper`,
+    mode: "paper",
+    broadcast: false,
+    decision: {
+      authorized: actuallyOpened,
+      requiresHumanConfirmation: false,
+      broadcast: false,
+      liveCandidateCount: candidates.length,
+      selectedPlanCount: actuallyOpened ? 1 : 0,
+      pass: !riskBlocked,
+      reasons: riskReasons,
+    },
+    paperPlan: [plan],
+    paperExecution: {
+      status,
+      symbol,
+      direction,
+      openedCount: opened,
+      message: detail,
+      positions: after,
+    },
+    tools: [
+      { name: "strategy.evaluate", status: "ok", result: { strategy: strategyKey, candidateCount: candidates.length } },
+      { name: "risk.apply_gate", status: riskBlocked ? "blocked" : "ok", result: { pass: !riskBlocked, reasons: riskReasons } },
+      { name: "paper.commit", status: actuallyOpened ? "ok" : "skipped", result: { openedCount: opened, broadcast: false } },
+      { name: "audit.append", status: "ok", result: { runId, persisted: true } },
+    ],
+    events,
+    completedAt: new Date().toISOString(),
+  };
+  persistAgentRun(result);
   return result;
 }
 
@@ -552,9 +669,19 @@ const server = createServer(async (req, res) => {
         const input = await readJsonBody(req);
         const strategyKey = String(input.strategy || "anomaly-binance");
         const intent = String(input.intent || "运行一次 Binance 策略扫描").trim().slice(0, 500);
-        return sendJson(res, 200, buildAgentRun(strategyKey, intent));
+        return sendJson(res, 200, buildAgentRun(strategyKey, intent, input.candidate || null));
       } catch (e) {
         return sendJson(res, Number(e?.statusCode || 500), { ok: false, error: e?.message || "Agent Tool Layer 执行失败" });
+      }
+    }
+
+    if (path === "/api/agent/confirm" && req.method === "POST") {
+      try {
+        const input = await readJsonBody(req, 20_000);
+        const strategyKey = String(input.strategy || "anomaly-binance");
+        return sendJson(res, 200, confirmPaperCandidate(strategyKey, input.candidate));
+      } catch (e) {
+        return sendJson(res, Number(e?.statusCode || 500), { ok: false, error: e?.message || "Paper 确认失败", broadcast: false });
       }
     }
 
@@ -615,8 +742,15 @@ const server = createServer(async (req, res) => {
     }
 
     if (path === "/api/closed") {
-      const limit = Math.min(Number(url.searchParams.get("limit") || 50), 200);
-      return sendJson(res, 200, { strategy, closed: getClosedPositions(strategy, limit) });
+      const limit = Math.min(Math.max(Number(url.searchParams.get("limit") || 50), 1), 200);
+      const offset = Math.max(Number(url.searchParams.get("offset") || 0), 0);
+      return sendJson(res, 200, {
+        strategy,
+        closed: getClosedPositions(strategy, limit, offset),
+        total: getClosedCount(strategy),
+        limit,
+        offset,
+      });
     }
 
     if (path === "/api/scan/latest") {
