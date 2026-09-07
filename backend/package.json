@@ -7,7 +7,8 @@
   "scripts": {
     "start": "node --experimental-sqlite server/index.mjs",
     "dev": "node --experimental-sqlite --watch server/index.mjs",
-    "backtest:dualma": "node server/backtest-dualma.mjs"
+    "backtest:dualma": "node server/backtest-dualma.mjs",
+    "test:intelligence": "node --test test/intelligence.test.mjs"
   },
   "engines": {
     "node": ">=24"
