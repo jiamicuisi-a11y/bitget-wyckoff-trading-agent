@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  createIntelligenceService,
   extractAssets,
   parseBinanceCatalog,
   parseRssFeed,
@@ -12,6 +13,34 @@ test("extractAssets finds major assets and futures symbols without duplicates", 
     extractAssets("BTC, ETH and PONSUSDT will trade alongside BTCUSDT."),
     ["BTC", "ETH", "PONS"]
   );
+});
+
+test("service returns cached activity with stale source state after a fetch failure", async () => {
+  const cached = [{
+    id: "binance_activity:abc",
+    externalId: "abc",
+    title: "Cached Binance activity",
+    source: "binance_activity",
+    type: "activity",
+    publishedAt: "2026-09-07T10:00:00.000Z",
+    url: "https://www.binance.com/en/support/announcement/abc",
+    summary: "",
+    assets: ["BTC"],
+    rawAvailable: false,
+  }];
+  const states = new Map([["binance_activity", { lastSuccessAt: 1_000 }]]);
+  const service = createIntelligenceService({
+    fetchImpl: async () => { throw new DOMException("timeout", "AbortError"); },
+    listItems: ({ source }) => source === "binance_activity" ? cached : [],
+    getSourceState: (source) => states.get(source),
+    setSourceState: (source, state) => states.set(source, state),
+    now: () => 2_000,
+  });
+
+  const result = await service.getActivities();
+  assert.equal(result.sources.binance_activity.stale, true);
+  assert.equal(result.items[0].id, "binance_activity:abc");
+  assert.equal(result.items[0].stale, true);
 });
 
 test("parseBinanceCatalog keeps public metadata and official article URL", () => {

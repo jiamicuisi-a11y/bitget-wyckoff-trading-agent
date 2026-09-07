@@ -117,6 +117,28 @@ db.exec(`
     ts       INTEGER NOT NULL
   );
   CREATE INDEX IF NOT EXISTS idx_agent_events_run_ts ON agent_events(run_id, ts);
+
+  CREATE TABLE IF NOT EXISTS intelligence_items (
+    id            TEXT PRIMARY KEY,
+    source        TEXT NOT NULL,
+    type          TEXT NOT NULL,
+    title         TEXT NOT NULL,
+    published_at  INTEGER,
+    url           TEXT NOT NULL,
+    summary       TEXT,
+    assets_json   TEXT NOT NULL,
+    raw_available INTEGER NOT NULL DEFAULT 0,
+    fetched_at    INTEGER NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_intelligence_items_source_published ON intelligence_items(source, published_at DESC);
+
+  CREATE TABLE IF NOT EXISTS intelligence_sources (
+    source          TEXT PRIMARY KEY,
+    last_success_at INTEGER,
+    last_attempt_at INTEGER,
+    last_error      TEXT,
+    updated_at      INTEGER NOT NULL
+  );
 `);
 
 // ---- 旧库迁移：若是单策略老表，补 strategy 列 ----
@@ -236,4 +258,96 @@ export function getAgentRun(runId) {
   const run = getAgentRunStmt.get(runId);
   if (!run) return null;
   return { ...run, broadcast: Boolean(run.broadcast), events: getAgentEventsStmt.all(runId).map((event) => ({ ...event, demo: Boolean(event.demo) })) };
+}
+
+const upsertIntelligenceItemStmt = db.prepare(`
+  INSERT INTO intelligence_items
+    (id, source, type, title, published_at, url, summary, assets_json, raw_available, fetched_at)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  ON CONFLICT(id) DO UPDATE SET
+    source=excluded.source, type=excluded.type, title=excluded.title, published_at=excluded.published_at,
+    url=excluded.url, summary=excluded.summary, assets_json=excluded.assets_json,
+    raw_available=excluded.raw_available, fetched_at=excluded.fetched_at
+`);
+const getIntelligenceSourceStmt = db.prepare("SELECT * FROM intelligence_sources WHERE source = ?");
+const upsertIntelligenceSourceStmt = db.prepare(`
+  INSERT INTO intelligence_sources (source, last_success_at, last_attempt_at, last_error, updated_at)
+  VALUES (?, ?, ?, ?, ?)
+  ON CONFLICT(source) DO UPDATE SET
+    last_success_at=excluded.last_success_at, last_attempt_at=excluded.last_attempt_at,
+    last_error=excluded.last_error, updated_at=excluded.updated_at
+`);
+
+function itemFromRow(row) {
+  let assets = [];
+  try { assets = JSON.parse(row.assets_json || "[]"); } catch { assets = []; }
+  return {
+    id: row.id,
+    externalId: String(row.id).split(":").slice(1).join(":"),
+    title: row.title,
+    source: row.source,
+    type: row.type,
+    publishedAt: row.published_at ? new Date(Number(row.published_at)).toISOString() : null,
+    url: row.url,
+    summary: row.summary || "",
+    assets: Array.isArray(assets) ? assets : [],
+    rawAvailable: Boolean(row.raw_available),
+  };
+}
+
+export function upsertIntelligenceItems(items, fetchedAt = Date.now()) {
+  if (!Array.isArray(items) || !items.length) return;
+  db.exec("BEGIN");
+  try {
+    for (const item of items) {
+      upsertIntelligenceItemStmt.run(
+        item.id,
+        item.source,
+        item.type,
+        item.title,
+        item.publishedAt ? Date.parse(item.publishedAt) : null,
+        item.url,
+        item.summary || "",
+        JSON.stringify(item.assets || []),
+        item.rawAvailable ? 1 : 0,
+        Number(fetchedAt)
+      );
+    }
+    db.exec("COMMIT");
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
+  }
+}
+
+export function listIntelligenceItems({ source, type, limit = 100 } = {}) {
+  const clauses = [];
+  const args = [];
+  if (source) { clauses.push("source = ?"); args.push(source); }
+  if (type) { clauses.push("type = ?"); args.push(type); }
+  args.push(Math.min(Math.max(Number(limit) || 100, 1), 200));
+  const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
+  return db.prepare(`SELECT * FROM intelligence_items ${where} ORDER BY published_at DESC LIMIT ?`).all(...args).map(itemFromRow);
+}
+
+export function getIntelligenceSourceState(source) {
+  const row = getIntelligenceSourceStmt.get(source);
+  if (!row) return null;
+  return {
+    source: row.source,
+    lastSuccessAt: row.last_success_at || null,
+    lastAttemptAt: row.last_attempt_at || null,
+    stale: Boolean(row.last_error),
+    error: row.last_error || null,
+  };
+}
+
+export function setIntelligenceSourceState(source, state = {}) {
+  upsertIntelligenceSourceStmt.run(
+    source,
+    state.lastSuccessAt || null,
+    state.lastAttemptAt || null,
+    state.error || null,
+    Date.now()
+  );
 }
