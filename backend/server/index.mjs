@@ -15,6 +15,7 @@
 //   GET /api/klines?strategy=&symbol=&granularity=&limit=  K线代理（按策略数据源路由）
 //   GET /api/options-arb?currency=BTC  期权套利雷达（Deribit Box/Parity）
 //   POST /api/agent/run             Track A Agent Tool Layer（只读感知 + Paper plan）
+//   POST /api/paper/reset           重置指定策略的本地 Paper 账本（不触碰真钱）
 
 import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
@@ -24,6 +25,7 @@ import { extname, join } from "node:path";
 import {
   db,
   ensureAccount,
+  INITIAL_CAPITAL,
   getAgentRun,
   listAgentRuns,
   persistAgentRun,
@@ -54,6 +56,7 @@ import { createMcpRuntime } from "./mcp-runtime.mjs";
 import { runAgentChat } from "./agent-chat.mjs";
 import { rankOpenInterestLeaders } from "./oi-analysis.mjs";
 import { createIntelligenceService, INTELLIGENCE_SOURCES } from "./intelligence.mjs";
+import { resetPaperState } from "./paper-reset.mjs";
 
 const PORT = Number(process.env.QUANT_PORT || 8800);
 const SCAN_INTERVAL_SEC = Number(process.env.QUANT_SCAN_INTERVAL_SEC || 120);
@@ -94,6 +97,7 @@ let scanStatus = "starting";
 let scanStartedAt = null;
 
 let scanning = false;
+const resettingStrategies = new Set();
 
 const intelligence = createIntelligenceService({
   listItems: listIntelligenceItems,
@@ -110,7 +114,12 @@ const intelligence = createIntelligenceService({
     for (const candidate of latestScanByStrategy["anomaly-binance"]?.allCandidates || []) {
       oiBySymbol[candidate.symbol] = { changePct: candidate.oiChangePct ?? null };
     }
-    return { tickers: latestMarketBySource.binance || [], candidatesByStrategy, oiBySymbol };
+    const positionsByStrategy = Object.fromEntries(
+      STRATEGIES
+        .filter((strategy) => strategy.source === "binance")
+        .map((strategy) => [strategy.key, getOpenPositions(strategy.key, latestPriceBySource.binance || [])])
+    );
+    return { tickers: latestMarketBySource.binance || [], candidatesByStrategy, positionsByStrategy, oiBySymbol };
   },
 });
 
@@ -174,6 +183,10 @@ async function runScanCycle() {
 
     // 4) 每个策略各跑各的（用它自己数据源的 ctx）
     for (const strat of STRATEGIES) {
+      if (resettingStrategies.has(strat.key)) {
+        console.log(`[${strat.key}] Paper 重置进行中，跳过本轮写账`);
+        continue;
+      }
       const ctx = ctxBySource[strat.source];
       if (!ctx) {
         console.error(`[${strat.key}] 数据源 ${strat.source} 本轮无数据，跳过`);
@@ -188,6 +201,10 @@ async function runScanCycle() {
         candidates = (await strat.candidates(ctx)) || [];
       } catch (e) {
         console.error(`[${strat.key}] candidates error: ${e?.message || e}`);
+      }
+      if (resettingStrategies.has(strat.key)) {
+        console.log(`[${strat.key}] Paper 重置发生在扫描等待期间，跳过本轮写账`);
+        continue;
       }
       // 先盯仓平仓，再开新仓（都用本源价格表）
       const manageFn = strat.manage || managePositions;
@@ -773,6 +790,36 @@ const server = createServer(async (req, res) => {
         return sendJson(res, result.ok ? 200 : 502, result);
       } catch (e) {
         return sendJson(res, 502, { ok: false, error: e?.message || "Agent MCP 对话失败", toolTrace: [], broadcast: false });
+      }
+    }
+
+    if (path === "/api/paper/reset" && req.method === "POST") {
+      try {
+        const input = await readJsonBody(req, 4_000);
+        const strategyKey = String(input.strategy || "").trim();
+        const strat = getStrategy(strategyKey);
+        if (!strat) return sendJson(res, 404, { ok: false, error: "未知策略" });
+
+        resettingStrategies.add(strategyKey);
+        try {
+          const reset = resetPaperState(db, strategyKey, INITIAL_CAPITAL);
+          delete latestScanByStrategy[strategyKey];
+          const priceMap = latestPriceBySource[strat.source] || {};
+          return sendJson(res, 200, {
+            ok: true,
+            ...reset,
+            source: strat.source,
+            broadcast: false,
+            message: `${strat.name} 已重置为 ${INITIAL_CAPITAL} U；仅清理本地 Paper 账本。`,
+            stats: getStats(strategyKey, priceMap),
+            positions: [],
+            recentClosed: [],
+          });
+        } finally {
+          resettingStrategies.delete(strategyKey);
+        }
+      } catch (e) {
+        return sendJson(res, Number(e?.statusCode || 500), { ok: false, error: e?.message || "Paper 账本重置失败", broadcast: false });
       }
     }
 

@@ -113,9 +113,10 @@ export async function createMcpRuntime(context, options = {}) {
     "market_intelligence_feed",
     {
       title: "市场资讯与公告",
-      description: "读取 Binance 中文站公开活动和公告，保留来源与中文原文链接；不使用账户数据。",
+      description: "读取 Binance 中文站和中文行业资讯源的公开活动、公告与资讯，保留来源与原文链接；不使用账户数据。",
       inputSchema: {
-        source: z.enum(["all", "binance_activity", "binance_announcement", "binance_listing"]).optional(),
+        source: z.enum(["all", "binance_activity", "binance_announcement", "binance_listing", "panews"]).optional(),
+        type: z.enum(["all", "activity", "announcement", "news"]).optional(),
         asset: z.string().min(2).max(12).optional(),
         limit: z.number().int().min(1).max(50).optional(),
       },

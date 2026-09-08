@@ -59,6 +59,12 @@ export async function loadIntelligenceFeed(filters: { source?: string; type?: st
   return readJson<IntelligenceFeed>(`/api/intelligence?${params.toString()}`);
 }
 
+export async function loadIntelligenceActivities(filters: { asset?: string } = {}) {
+  const params = new URLSearchParams({ view: "activities" });
+  if (filters.asset?.trim()) params.set("asset", filters.asset.trim().toUpperCase());
+  return readJson<IntelligenceFeed>(`/api/intelligence?${params.toString()}`);
+}
+
 export function formatTime(value?: number | string | null) {
   if (!value) return "—";
   const timestamp = typeof value === "number" && Math.abs(value) < 100_000_000_000 ? value * 1000 : value;

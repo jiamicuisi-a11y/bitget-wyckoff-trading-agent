@@ -2,12 +2,13 @@
 
 Binance Agent OS Mini Hackathon Track A prototype：一个面向交易研究与模拟执行的 AI Agent 控制台。
 
-它复用了此前 Bitget Hackathon 项目中的两套 Paper 策略：
+它复用了此前 Bitget Hackathon 项目中的策略，并扩展为三套 Binance Paper 策略：
 
 - **A档异动扫描**：综合 OI、24h 价格、成交额、盘口和资金费率，筛选异动机会。
 - **双均线 4H**：对 Binance USDT 永续成交额 Top30 计算 EMA(10/30)，捕捉金叉/死叉趋势段。
+- **30 分钟箱体突破**：识别已收盘 K 线向上突破箱体并放量的做多机会，止损 5%。
 
-当前版本将两套策略接入 Binance Futures 公开行情，并用 Agent OS 风格的工作流呈现：
+当前版本将三套策略接入 Binance Futures 公开行情，并用 Agent OS 风格的工作流呈现：
 
 ```text
 自然语言扫描 → 候选卡片 → K 线解释 → 风险闸门 → Paper 确认 → 审计记录
@@ -36,7 +37,7 @@ node scripts/local-service.mjs stop
 - Frontend: http://localhost:4180
 - Paper worker: http://localhost:8810
 
-页面默认展示 Binance 版 A档异动扫描和双均线 4H。旧的 Bitget/OKX 策略仍注册在 worker 中，便于横向对照。
+页面默认展示 Binance 版 A档异动扫描、双均线 4H 和 30 分钟箱体突破。旧的 Bitget/OKX 策略仍注册在 worker 中，便于横向对照。
 
 ## Binance Agent OS / MCP
 
@@ -76,6 +77,6 @@ Demo 建议按 2–3 分钟讲清楚：先在“市场情报”筛选 Binance �
 - `frontend/app/api/agent/route.ts`：页面到 Agent Tool Layer 的安全代理
 - `frontend/app/globals.css`：Agent OS 控制台视觉系统
 - `backend/server/sources.mjs`：Bitget、OKX、Binance Futures 统一数据源适配
-- `backend/server/strategies.mjs`：A档和双均线策略注册表
-- `backend/server/index.mjs`：扫描 worker、`/api/agent/run` Paper 计划入口与 `/api/agent/confirm` 本地 Paper 确认入口
+- `backend/server/strategies.mjs`：Binance 三套策略及 Paper 风险参数注册表
+- `backend/server/index.mjs`：扫描 worker、Agent Paper 计划/确认入口和 Paper 账本重置接口
 - `data/quant.db`：本地 Paper 账本

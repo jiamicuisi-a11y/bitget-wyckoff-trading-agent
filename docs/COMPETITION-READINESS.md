@@ -2,7 +2,7 @@
 
 ## 当前定位
 
-本项目按 Track A 准备：一个面向 Binance Futures 公共行情的可解释 Paper Trading Agent。它把 A 档异动扫描和双均线 4H 放进同一条 Agent OS 风格工作流，并通过本地 MCP 工具层展示可追踪的工具调用。
+本项目按 Track A 准备：一个面向 Binance Futures 公共行情的可解释 Paper Trading Agent。它把 A 档异动扫描、双均线 4H 和 30 分钟箱体突破放进同一条 Agent OS 风格工作流，并通过本地 MCP 工具层展示可追踪的工具调用。
 
 ## 官方要求映射
 
@@ -19,7 +19,7 @@
 
 - [ ] 创建或确认公开 GitHub 仓库，并把当前代码同步进去。
 - [ ] 在干净 Node.js 24+ 环境执行 `node scripts/local-service.mjs start`。
-- [ ] 录制完整 Demo，展示两套策略、Agent 对话、MCP Tool Trace、Paper 账本和 Risk Gate。
+- [ ] 录制完整 Demo，展示核心策略页面、Agent 对话、MCP Tool Trace、Paper 账本和 Risk Gate。
 - [ ] 说明本项目使用 Binance public data，不把模拟收益写成实盘收益。
 - [ ] 按官方要求完成公告互动和问卷。
 - [ ] 提交前再核对活动截止时间、地区资格和最新规则。

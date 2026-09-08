@@ -5,7 +5,7 @@ export const runtime = "nodejs";
 
 const WORKER = process.env.QUANT_WORKER_URL || "http://127.0.0.1:8810";
 const TIMEOUT_MS = 8_000;
-const SOURCES = new Set(["all", "binance_activity", "binance_announcement", "binance_listing"]);
+const SOURCES = new Set(["all", "binance_activity", "binance_announcement", "binance_listing", "panews"]);
 const TYPES = new Set(["all", "activity", "announcement", "news"]);
 
 async function pass(path: string) {

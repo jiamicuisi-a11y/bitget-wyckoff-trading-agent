@@ -144,7 +144,30 @@ export type IntelligenceContext = {
     fundingRate: number | null;
     oiChangePct: number | null;
     candidateStrategies: string[];
+    candidateMatches: Array<{
+      strategy: string;
+      score: number | null;
+      direction: string | null;
+      reason: string;
+    }>;
+    positionMatches: Array<{
+      strategy: string;
+      direction: string | null;
+      entryPrice: number | null;
+    }>;
   }>;
+};
+
+export type ActivityDetails = {
+  category: string;
+  reward: string;
+  qualification: string;
+  participation: string;
+  startsAt: string | null;
+  endsAt: string | null;
+  status: "upcoming" | "active" | "ended" | "unknown";
+  statusLabel: string;
+  sourceUpdatedAt?: string | null;
 };
 
 export type IntelligenceItem = {
@@ -158,6 +181,7 @@ export type IntelligenceItem = {
   assets: string[];
   stale?: boolean;
   marketContext?: IntelligenceContext;
+  activityDetails?: ActivityDetails | null;
 };
 
 export type IntelligenceSourceState = { source: string; lastSuccessAt: number | null; stale: boolean; error?: string | null };

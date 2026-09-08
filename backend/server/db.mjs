@@ -127,6 +127,7 @@ db.exec(`
     url           TEXT NOT NULL,
     summary       TEXT,
     assets_json   TEXT NOT NULL,
+    details_json  TEXT,
     raw_available INTEGER NOT NULL DEFAULT 0,
     fetched_at    INTEGER NOT NULL
   );
@@ -151,6 +152,7 @@ function ensureColumn(table, col, ddl) {
 ensureColumn("positions", "strategy", "strategy TEXT NOT NULL DEFAULT 'anomaly'");
 ensureColumn("equity_points", "strategy", "strategy TEXT NOT NULL DEFAULT 'anomaly'");
 ensureColumn("scans", "strategy", "strategy TEXT NOT NULL DEFAULT 'anomaly'");
+ensureColumn("intelligence_items", "details_json", "details_json TEXT");
 // 追踪止盈用：记录持仓期间最有利价（多单=最高价 / 空单=最低价）
 ensureColumn("positions", "peak_price", "peak_price REAL");
 
@@ -262,11 +264,12 @@ export function getAgentRun(runId) {
 
 const upsertIntelligenceItemStmt = db.prepare(`
   INSERT INTO intelligence_items
-    (id, source, type, title, published_at, url, summary, assets_json, raw_available, fetched_at)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    (id, source, type, title, published_at, url, summary, assets_json, details_json, raw_available, fetched_at)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   ON CONFLICT(id) DO UPDATE SET
     source=excluded.source, type=excluded.type, title=excluded.title, published_at=excluded.published_at,
     url=excluded.url, summary=excluded.summary, assets_json=excluded.assets_json,
+    details_json=excluded.details_json,
     raw_available=excluded.raw_available, fetched_at=excluded.fetched_at
 `);
 const getIntelligenceSourceStmt = db.prepare("SELECT * FROM intelligence_sources WHERE source = ?");
@@ -281,6 +284,8 @@ const upsertIntelligenceSourceStmt = db.prepare(`
 function itemFromRow(row) {
   let assets = [];
   try { assets = JSON.parse(row.assets_json || "[]"); } catch { assets = []; }
+  let activityDetails = null;
+  try { activityDetails = row.details_json ? JSON.parse(row.details_json) : null; } catch { activityDetails = null; }
   return {
     id: row.id,
     externalId: String(row.id).split(":").slice(1).join(":"),
@@ -291,6 +296,7 @@ function itemFromRow(row) {
     url: row.url,
     summary: row.summary || "",
     assets: Array.isArray(assets) ? assets : [],
+    activityDetails,
     rawAvailable: Boolean(row.raw_available),
   };
 }
@@ -309,6 +315,7 @@ export function upsertIntelligenceItems(items, fetchedAt = Date.now()) {
         item.url,
         item.summary || "",
         JSON.stringify(item.assets || []),
+        item.activityDetails ? JSON.stringify(item.activityDetails) : null,
         item.rawAvailable ? 1 : 0,
         Number(fetchedAt)
       );
